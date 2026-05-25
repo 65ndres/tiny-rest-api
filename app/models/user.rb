@@ -36,7 +36,7 @@ class User < ApplicationRecord
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
 
   after_create :generate_username
-  after_create :send_welcome_message
+  # after_create :send_welcome_message
   after_create :setup_onboarding
   # after_create :create_free_trial_subscription
   
