@@ -33,6 +33,8 @@ Rails.application.routes.draw do
 
       get 'onboarding', to: 'onboarding#show'
       get 'onboarding/completed_onboarding', to: 'onboarding#completed_onboarding'
+
+      resources :timer_runs, only: [:index, :create, :update]
     end
   end
 end

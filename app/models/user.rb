@@ -30,6 +30,8 @@ class User < ApplicationRecord
   # Onboarding
   has_one :onboarding, dependent: :destroy
 
+  has_many :timer_runs, dependent: :destroy
+
   validates :username, presence: true, uniqueness: true, allow_nil: true
 
   # Search users by username

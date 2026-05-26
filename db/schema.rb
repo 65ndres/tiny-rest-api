@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_05_09_033300) do
+ActiveRecord::Schema[7.2].define(version: 2026_05_25_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -94,6 +94,18 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_09_033300) do
     t.index ["user_id"], name: "index_subscriptions_on_user_id_active_unique", unique: true, where: "(subscription_type = 0)"
   end
 
+  create_table "timer_runs", force: :cascade do |t|
+    t.bigint "user_id"
+    t.datetime "start_time", null: false
+    t.datetime "end_time"
+    t.integer "duration"
+    t.boolean "submitted", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "submitted"], name: "index_timer_runs_on_user_id_and_submitted"
+    t.index ["user_id"], name: "index_timer_runs_on_user_id"
+  end
+
   create_table "user_conversations", force: :cascade do |t|
     t.bigint "user_id", null: false
     t.bigint "conversation_id", null: false
@@ -132,6 +144,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_05_09_033300) do
   add_foreign_key "subscription_events", "subscriptions"
   add_foreign_key "subscription_events", "users"
   add_foreign_key "subscriptions", "users"
+  add_foreign_key "timer_runs", "users"
   add_foreign_key "user_conversations", "conversations"
   add_foreign_key "user_conversations", "users"
 end
