@@ -1,13 +1,7 @@
 class Api::V1::UsersController < ApplicationController
   def show
     if current_user
-      render json: {
-        first_name: current_user.first_name,
-        last_name: current_user.last_name,
-        email: current_user.email,
-        username: current_user.username,
-        subscription_type: current_user.subscription_type
-      }, status: :ok
+      render json: user_profile_json(current_user), status: :ok
     else
       render json: { error: 'Unauthorized' }, status: :unauthorized
     end
@@ -16,13 +10,9 @@ class Api::V1::UsersController < ApplicationController
   def update
     if current_user
       if current_user.update(user_params)
-        render json: {
-          first_name: current_user.first_name,
-          last_name: current_user.last_name,
-          email: current_user.email,
-          username: current_user.username,
+        render json: user_profile_json(current_user).merge(
           message: 'Profile updated successfully'
-        }, status: :ok
+        ), status: :ok
       else
         render json: {
           errors: current_user.errors.full_messages
@@ -98,7 +88,26 @@ class Api::V1::UsersController < ApplicationController
   private
 
   def user_params
-    params.require(:user).permit(:first_name, :last_name, :email, :username)
+    params.require(:user).permit(
+      :first_name,
+      :last_name,
+      :email,
+      :username,
+      :baby_name,
+      :daily_nap_count
+    )
+  end
+
+  def user_profile_json(user)
+    {
+      first_name: user.first_name,
+      last_name: user.last_name,
+      email: user.email,
+      username: user.username,
+      subscription_type: user.subscription_type_for_payload,
+      baby_name: user.baby_name,
+      daily_nap_count: user.daily_nap_count
+    }
   end
 end
 

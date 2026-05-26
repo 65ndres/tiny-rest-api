@@ -33,6 +33,7 @@ class User < ApplicationRecord
   has_many :timer_runs, dependent: :destroy
 
   validates :username, presence: true, uniqueness: true, allow_nil: true
+  validates :daily_nap_count, inclusion: { in: 1..5 }
 
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }

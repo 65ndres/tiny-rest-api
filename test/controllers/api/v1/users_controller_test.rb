@@ -268,6 +268,51 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_includes user_ids, @user2.id
   end
 
+  test "should show baby_name and daily_nap_count" do
+    @user1.update!(baby_name: "Emma", daily_nap_count: 4)
+
+    get "/api/v1/user", headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal "Emma", json_response["baby_name"]
+    assert_equal 4, json_response["daily_nap_count"]
+  end
+
+  test "should update baby_name and daily_nap_count" do
+    post "/api/v1/user",
+         params: {
+           user: {
+             baby_name: "Liam",
+             daily_nap_count: 2
+           }
+         },
+         headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal "Liam", json_response["baby_name"]
+    assert_equal 2, json_response["daily_nap_count"]
+
+    @user1.reload
+    assert_equal "Liam", @user1.baby_name
+    assert_equal 2, @user1.daily_nap_count
+  end
+
+  test "should reject daily_nap_count outside 1 to 5" do
+    post "/api/v1/user",
+         params: {
+           user: {
+             daily_nap_count: 6
+           }
+         },
+         headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert json_response["errors"].present?
+  end
+
   test "should update user with POST method" do
     post "/api/v1/user",
          params: {
