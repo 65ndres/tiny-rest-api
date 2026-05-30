@@ -12,6 +12,15 @@ class Api::V1::TimerRunsController < ApplicationController
     }, status: :ok
   end
 
+  # GET /api/v1/timer_runs/active
+  def active
+    timer_run = current_user.timer_runs.active.first
+
+    render json: {
+      timer_run: timer_run ? serialize_timer_run(timer_run) : nil
+    }, status: :ok
+  end
+
   # POST /api/v1/timer_runs
   def create
     start_time = parse_time_param(params[:start_time])
@@ -22,7 +31,8 @@ class Api::V1::TimerRunsController < ApplicationController
     timer_run = current_user.timer_runs.build(
       start_time: start_time,
       submitted: false,
-      active: true
+      active: true,
+      paused: false
     )
 
     if timer_run.save
@@ -34,6 +44,41 @@ class Api::V1::TimerRunsController < ApplicationController
 
   # PATCH/PUT /api/v1/timer_runs/:id
   def update
+    if pause_resume_update?
+      update_pause_state
+    else
+      submit_timer_run
+    end
+  end
+
+  private
+
+  def pause_resume_update?
+    params.key?(:paused) && !boolean_param(:submitted)
+  end
+
+  def update_pause_state
+    paused = boolean_param(:paused)
+
+    if paused
+      end_time = parse_time_param(params[:end_time])
+      unless end_time
+        return render json: { error: 'end_time is required when pausing' }, status: :unprocessable_entity
+      end
+
+      @timer_run.assign_attributes(paused: true, end_time: end_time)
+    else
+      @timer_run.assign_attributes(paused: false, end_time: nil)
+    end
+
+    if @timer_run.save
+      render json: { timer_run: serialize_timer_run(@timer_run) }, status: :ok
+    else
+      render json: { errors: @timer_run.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+
+  def submit_timer_run
     end_time = parse_time_param(params[:end_time])
     unless end_time
       return render json: { error: 'end_time is required' }, status: :unprocessable_entity
@@ -46,7 +91,8 @@ class Api::V1::TimerRunsController < ApplicationController
     @timer_run.assign_attributes(
       end_time: end_time,
       duration: params[:duration].to_i,
-      submitted: ActiveModel::Type::Boolean.new.cast(params[:submitted])
+      submitted: boolean_param(:submitted),
+      paused: false
     )
 
     if @timer_run.save
@@ -56,13 +102,15 @@ class Api::V1::TimerRunsController < ApplicationController
     end
   end
 
-  private
-
   def set_timer_run
     @timer_run = current_user.timer_runs.find_by(id: params[:id])
     return if @timer_run
 
     render json: { error: 'Timer run not found' }, status: :not_found
+  end
+
+  def boolean_param(key)
+    ActiveModel::Type::Boolean.new.cast(params[key])
   end
 
   def parse_time_param(value)
@@ -80,7 +128,8 @@ class Api::V1::TimerRunsController < ApplicationController
       end_time: timer_run.end_time&.iso8601,
       duration: timer_run.duration,
       submitted: timer_run.submitted,
-      active: timer_run.active
+      active: timer_run.active,
+      paused: timer_run.paused
     }
   end
 end

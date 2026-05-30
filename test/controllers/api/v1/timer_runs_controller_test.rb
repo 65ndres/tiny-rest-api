@@ -54,8 +54,113 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_nil timer_run["duration"]
     assert_equal false, timer_run["submitted"]
     assert_equal true, timer_run["active"]
+    assert_equal false, timer_run["paused"]
 
     assert @user1.timer_runs.find(timer_run["id"]).active?
+  end
+
+  test "active returns null when no active run" do
+    get "/api/v1/timer_runs/active", headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+
+    assert_nil json_response["timer_run"]
+  end
+
+  test "active returns current users active run" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 1.hour.ago,
+      submitted: false,
+      active: true,
+      paused: false
+    )
+    @user2.timer_runs.create!(
+      start_time: 2.hours.ago,
+      submitted: false,
+      active: true
+    )
+
+    get "/api/v1/timer_runs/active", headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    active = json_response["timer_run"]
+
+    assert_equal timer_run.id, active["id"]
+    assert_equal false, active["paused"]
+    assert_equal true, active["active"]
+  end
+
+  test "pause sets paused and end_time while keeping active" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      submitted: false,
+      active: true,
+      paused: false
+    )
+    end_time = 1.hour.ago.iso8601
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: { paused: true, end_time: end_time },
+          headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    updated = json_response["timer_run"]
+
+    assert_equal true, updated["paused"]
+    assert_equal end_time, updated["end_time"]
+    assert_equal true, updated["active"]
+
+    timer_run.reload
+    assert timer_run.paused?
+    assert timer_run.active?
+    assert timer_run.end_time.present?
+  end
+
+  test "resume clears paused and end_time while keeping active" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      end_time: 1.hour.ago,
+      submitted: false,
+      active: true,
+      paused: true
+    )
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: { paused: false },
+          headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    updated = json_response["timer_run"]
+
+    assert_equal false, updated["paused"]
+    assert_nil updated["end_time"]
+    assert_equal true, updated["active"]
+
+    timer_run.reload
+    assert_not timer_run.paused?
+    assert_nil timer_run.end_time
+    assert timer_run.active?
+  end
+
+  test "pause requires end_time" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      submitted: false,
+      active: true
+    )
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: { paused: true },
+          headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+
+    assert_equal "end_time is required when pausing", json_response["error"]
   end
 
   test "second create auto-closes active run without end_time" do
@@ -133,6 +238,7 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 3_600_000, updated["duration"]
     assert_equal true, updated["submitted"]
     assert_equal false, updated["active"]
+    assert_equal false, updated["paused"]
 
     timer_run.reload
     assert timer_run.submitted?

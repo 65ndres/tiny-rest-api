@@ -9,6 +9,7 @@ class TimerRun < ApplicationRecord
   validates :start_time, presence: true
   validates :end_time, :duration, presence: true, if: :submitted?
   validate :submitted_must_be_true_when_completed, if: -> { end_time.present? && duration.present? }
+  validate :paused_only_when_not_submitted
 
   before_create :deactivate_previous_active_run
   before_save :clear_active_when_completed
@@ -31,7 +32,13 @@ class TimerRun < ApplicationRecord
   end
 
   def clear_active_when_completed
-    self.active = false if end_time.present?
+    self.active = false if submitted?
+  end
+
+  def paused_only_when_not_submitted
+    return unless paused? && submitted?
+
+    errors.add(:paused, 'cannot be true when submitted')
   end
 
   def submitted_must_be_true_when_completed
