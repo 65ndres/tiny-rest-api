@@ -53,12 +53,67 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_nil timer_run["end_time"]
     assert_nil timer_run["duration"]
     assert_equal false, timer_run["submitted"]
+    assert_equal true, timer_run["active"]
+
+    assert @user1.timer_runs.find(timer_run["id"]).active?
+  end
+
+  test "second create auto-closes active run without end_time" do
+    first_start = 2.hours.ago.iso8601
+    second_start = 1.hour.ago.iso8601
+
+    post "/api/v1/timer_runs",
+         params: { start_time: first_start },
+         headers: auth_headers(@token1)
+    assert_response :created
+    first_run = @user1.timer_runs.order(:id).first
+
+    travel_to Time.zone.parse(second_start) do
+      assert_difference -> { @user1.timer_runs.count }, 1 do
+        post "/api/v1/timer_runs",
+             params: { start_time: second_start },
+             headers: auth_headers(@token1)
+      end
+    end
+
+    assert_response :created
+    first_run.reload
+    second_run = @user1.timer_runs.active.first
+
+    assert_not first_run.active?
+    assert first_run.end_time.present?
+    assert_in_delta Time.zone.parse(second_start).to_f, first_run.end_time.to_f, 1.0
+    assert second_run.active?
+    assert_equal Time.zone.parse(second_start), second_run.start_time
+  end
+
+  test "second create deactivates prior active run that already has end_time" do
+    existing_end = 90.minutes.ago
+    first_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      end_time: existing_end,
+      active: true,
+      submitted: false
+    )
+    second_start = 1.hour.ago.iso8601
+
+    post "/api/v1/timer_runs",
+         params: { start_time: second_start },
+         headers: auth_headers(@token1)
+
+    assert_response :created
+    first_run.reload
+
+    assert_not first_run.active?
+    assert_equal existing_end.to_i, first_run.end_time.to_i
+    assert @user1.timer_runs.active.exists?
   end
 
   test "update sets end_time duration and submitted" do
     timer_run = @user1.timer_runs.create!(
       start_time: 2.hours.ago,
-      submitted: false
+      submitted: false,
+      active: true
     )
     end_time = 1.hour.ago.iso8601
 
@@ -77,10 +132,12 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal end_time, updated["end_time"]
     assert_equal 3_600_000, updated["duration"]
     assert_equal true, updated["submitted"]
+    assert_equal false, updated["active"]
 
     timer_run.reload
     assert timer_run.submitted?
     assert_equal 3_600_000, timer_run.duration
+    assert_not timer_run.active?
   end
 
   test "index returns only current user submitted runs" do

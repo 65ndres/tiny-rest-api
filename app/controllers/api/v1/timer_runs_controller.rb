@@ -21,7 +21,8 @@ class Api::V1::TimerRunsController < ApplicationController
 
     timer_run = current_user.timer_runs.build(
       start_time: start_time,
-      submitted: false
+      submitted: false,
+      active: true
     )
 
     if timer_run.save
@@ -78,7 +79,8 @@ class Api::V1::TimerRunsController < ApplicationController
       start_time: timer_run.start_time&.iso8601,
       end_time: timer_run.end_time&.iso8601,
       duration: timer_run.duration,
-      submitted: timer_run.submitted
+      submitted: timer_run.submitted,
+      active: timer_run.active
     }
   end
 end
