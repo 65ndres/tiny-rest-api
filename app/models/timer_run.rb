@@ -3,6 +3,13 @@
 class TimerRun < ApplicationRecord
   belongs_to :user, optional: true
 
+  enum :run_type, {
+    sleeping: "sleeping",
+    nursing_left: "nursing_left",
+    nursing_right: "nursing_right",
+    bottle: "bottle"
+  }, validate: true
+
   scope :submitted, -> { where(submitted: true) }
   scope :active, -> { where(active: true) }
 
@@ -10,9 +17,14 @@ class TimerRun < ApplicationRecord
   validates :end_time, :duration, presence: true, if: :submitted?
   validate :submitted_must_be_true_when_completed, if: -> { end_time.present? && duration.present? }
   validate :paused_only_when_not_submitted
+  validate :metadata_must_be_hash
 
-  before_create :deactivate_previous_active_run
+  before_create :deactivate_previous_active_run, unless: :bottle_submitted_on_create?
   before_save :clear_active_when_completed
+
+  def bottle_submitted_on_create?
+    bottle? && submitted? && !persisted?
+  end
 
   private
 
@@ -38,12 +50,18 @@ class TimerRun < ApplicationRecord
   def paused_only_when_not_submitted
     return unless paused? && submitted?
 
-    errors.add(:paused, 'cannot be true when submitted')
+    errors.add(:paused, "cannot be true when submitted")
   end
 
   def submitted_must_be_true_when_completed
     return if submitted?
 
-    errors.add(:submitted, 'must be true when end_time and duration are set')
+    errors.add(:submitted, "must be true when end_time and duration are set")
+  end
+
+  def metadata_must_be_hash
+    return if metadata.is_a?(Hash)
+
+    errors.add(:metadata, "must be a hash")
   end
 end
