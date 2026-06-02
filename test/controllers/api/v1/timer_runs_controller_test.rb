@@ -55,6 +55,8 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_equal false, timer_run["submitted"]
     assert_equal true, timer_run["active"]
     assert_equal false, timer_run["paused"]
+    assert_equal "sleeping", timer_run["run_type"]
+    assert_equal({}, timer_run["metadata"])
 
     assert @user1.timer_runs.find(timer_run["id"]).active?
   end
@@ -246,6 +248,60 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_not timer_run.active?
   end
 
+  test "index filters by from and to range overlap" do
+    in_range = @user1.timer_runs.create!(
+      start_time: Time.zone.parse("2026-05-28 10:00:00"),
+      end_time: Time.zone.parse("2026-05-28 11:00:00"),
+      duration: 3_600_000,
+      submitted: true
+    )
+    @user1.timer_runs.create!(
+      start_time: Time.zone.parse("2026-05-20 10:00:00"),
+      end_time: Time.zone.parse("2026-05-20 11:00:00"),
+      duration: 3_600_000,
+      submitted: true
+    )
+    spanning_midnight = @user1.timer_runs.create!(
+      start_time: Time.zone.parse("2026-05-27 23:30:00"),
+      end_time: Time.zone.parse("2026-05-28 00:30:00"),
+      duration: 3_600_000,
+      submitted: true
+    )
+
+    get "/api/v1/timer_runs",
+        params: { from: "2026-05-26", to: "2026-06-01" },
+        headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    ids = json_response["timer_runs"].map { |run| run["id"] }
+
+    assert_equal [spanning_midnight.id, in_range.id], ids
+  end
+
+  test "index without range params returns all submitted runs newest first" do
+    older = @user1.timer_runs.create!(
+      start_time: 3.hours.ago,
+      end_time: 2.hours.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+    newer = @user1.timer_runs.create!(
+      start_time: 1.hour.ago,
+      end_time: 30.minutes.ago,
+      duration: 1_800_000,
+      submitted: true
+    )
+
+    get "/api/v1/timer_runs", headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    ids = json_response["timer_runs"].map { |run| run["id"] }
+
+    assert_equal [newer.id, older.id], ids
+  end
+
   test "index returns only current user submitted runs" do
     submitted_run = @user1.timer_runs.create!(
       start_time: 3.hours.ago,
@@ -288,5 +344,113 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
           headers: auth_headers(@token1)
 
     assert_response :not_found
+  end
+
+  test "create with nursing_left run_type" do
+    start_time = 1.hour.ago.iso8601
+
+    post "/api/v1/timer_runs",
+         params: { start_time: start_time, run_type: "nursing_left" },
+         headers: auth_headers(@token1)
+
+    assert_response :created
+    timer_run = JSON.parse(response.body)["timer_run"]
+
+    assert_equal "nursing_left", timer_run["run_type"]
+    assert_equal true, timer_run["active"]
+  end
+
+  test "create bottle submitted in one request" do
+    start_time = Time.zone.parse("2026-06-01 22:29:00").iso8601
+    metadata = {
+      "feeding_type" => "formula",
+      "unit" => "oz",
+      "amount" => 4,
+      "notes" => "after nap"
+    }
+
+    assert_difference -> { @user1.timer_runs.count }, 1 do
+      post "/api/v1/timer_runs",
+           params: {
+             start_time: start_time,
+             run_type: "bottle",
+             submitted: true,
+             metadata: metadata
+           },
+           headers: auth_headers(@token1)
+    end
+
+    assert_response :created
+    timer_run = JSON.parse(response.body)["timer_run"]
+
+    assert_equal "bottle", timer_run["run_type"]
+    assert_equal true, timer_run["submitted"]
+    assert_equal false, timer_run["active"]
+    assert_equal start_time, timer_run["end_time"]
+    assert_equal 0, timer_run["duration"]
+    assert_equal "formula", timer_run["metadata"]["feeding_type"]
+    assert_equal 4, timer_run["metadata"]["amount"].to_i
+
+    record = @user1.timer_runs.find(timer_run["id"])
+    assert_not record.active?
+  end
+
+  test "index filters by run_type" do
+    nap = @user1.timer_runs.create!(
+      start_time: 3.hours.ago,
+      end_time: 2.hours.ago,
+      duration: 3_600_000,
+      submitted: true,
+      run_type: :sleeping
+    )
+    @user1.timer_runs.create!(
+      start_time: 3.hours.ago,
+      end_time: 2.hours.ago,
+      duration: 0,
+      submitted: true,
+      run_type: :bottle,
+      metadata: { "unit" => "oz" }
+    )
+
+    get "/api/v1/timer_runs",
+        params: { run_type: "sleeping" },
+        headers: auth_headers(@token1)
+
+    assert_response :success
+    ids = JSON.parse(response.body)["timer_runs"].map { |run| run["id"] }
+
+    assert_equal [nap.id], ids
+  end
+
+  test "active filters by run_type" do
+    @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      submitted: false,
+      active: true,
+      run_type: :nursing_left
+    )
+
+    get "/api/v1/timer_runs/active",
+        params: { run_type: "nursing_right" },
+        headers: auth_headers(@token1)
+
+    assert_response :success
+    assert_nil JSON.parse(response.body)["timer_run"]
+
+    get "/api/v1/timer_runs/active",
+        params: { run_type: "nursing_left" },
+        headers: auth_headers(@token1)
+
+    assert_response :success
+    assert_not_nil JSON.parse(response.body)["timer_run"]
+  end
+
+  test "create rejects invalid run_type" do
+    post "/api/v1/timer_runs",
+         params: { start_time: 1.hour.ago.iso8601, run_type: "invalid" },
+         headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    assert_equal "invalid run_type", JSON.parse(response.body)["error"]
   end
 end
