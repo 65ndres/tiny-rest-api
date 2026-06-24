@@ -198,7 +198,10 @@ GEM
     nokogiri (1.18.10-x86_64-linux-musl)
       racc (~> 1.4)
     orm_adapter (0.5.0)
-    pagy (8.6.3)
+    pagy (43.4.4)
+      json
+      uri
+      yaml
     parallel (1.27.0)
     parser (3.3.9.0)
       ast (~> 2.4.1)
@@ -323,6 +326,7 @@ GEM
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
     unicode-emoji (4.1.0)
+    uri (1.1.1)
     useragent (0.16.11)
     warden (1.2.9)
       rack (>= 2.0.9)
@@ -335,6 +339,7 @@ GEM
       base64
       websocket-extensions (>= 0.1.0)
     websocket-extensions (0.1.5)
+    yaml (0.4.0)
     zeitwerk (2.7.3)
 
 PLATFORMS
@@ -358,7 +363,7 @@ DEPENDENCIES
   dotenv-rails
   faker
   jsonapi-serializer
-  pagy (~> 8.0)
+  pagy (~> 43.4)
   pg (~> 1.1)
   puma (>= 5.0)
   rack-cors

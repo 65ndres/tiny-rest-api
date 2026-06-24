@@ -23,7 +23,7 @@ gem 'tarpon'
 
 gem 'sidekiq'
 
-gem 'pagy', '~> 8.0'
+gem 'pagy', '~> 43.4'
 
 gem 'devise'
 gem 'devise-jwt'
