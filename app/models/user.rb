@@ -34,6 +34,7 @@ class User < ApplicationRecord
 
   validates :username, presence: true, uniqueness: true, allow_nil: true
   validates :daily_nap_count, inclusion: { in: 1..5 }
+  validate :baby_birthdate_must_be_valid, if: -> { baby_birthdate.present? }
 
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
@@ -133,6 +134,14 @@ class User < ApplicationRecord
   # Returns `nil` when the user has no subscription records.
   def subscription_type_for_payload
     subscriptions.order(created_at: :desc).first&.subscription_type
+  end
+
+  def baby_birthdate_must_be_valid
+    if baby_birthdate > Date.current
+      errors.add(:baby_birthdate, 'must be in the past')
+    elsif baby_birthdate < 4.years.ago.to_date
+      errors.add(:baby_birthdate, 'must be within the last 4 years')
+    end
   end
 
   def create_free_trial_subscription

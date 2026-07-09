@@ -313,6 +313,37 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
+  test "should show and update baby_birthdate" do
+    birthdate = 6.months.ago.to_date
+    @user1.update!(baby_birthdate: birthdate)
+
+    get "/api/v1/user", headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal birthdate.iso8601, json_response["baby_birthdate"]
+
+    new_birthdate = 1.year.ago.to_date
+    post "/api/v1/user",
+         params: { user: { baby_birthdate: new_birthdate.iso8601 } },
+         headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal new_birthdate.iso8601, json_response["baby_birthdate"]
+    assert_equal new_birthdate, @user1.reload.baby_birthdate
+  end
+
+  test "should reject future baby_birthdate" do
+    post "/api/v1/user",
+         params: { user: { baby_birthdate: 1.day.from_now.to_date.iso8601 } },
+         headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert json_response["errors"].present?
+  end
+
   test "should update user with POST method" do
     post "/api/v1/user",
          params: {

@@ -94,6 +94,7 @@ class Api::V1::UsersController < ApplicationController
       :email,
       :username,
       :baby_name,
+      :baby_birthdate,
       :daily_nap_count
     )
   end
@@ -106,6 +107,7 @@ class Api::V1::UsersController < ApplicationController
       username: user.username,
       subscription_type: user.subscription_type_for_payload,
       baby_name: user.baby_name,
+      baby_birthdate: user.baby_birthdate&.iso8601,
       daily_nap_count: user.daily_nap_count
     }
   end
