@@ -1,6 +1,6 @@
 # Create support user
 support_user = User.find_or_create_by!(email: 'support@promesas.com') do |user|
-  user.password = ENV.fetch('SUPPORT_USER_PASSWORD')
+  user.password = 'asdfasdfasdf'
   user.username = 'Support'
   user.first_name = 'Support'
   user.last_name = 'Team'

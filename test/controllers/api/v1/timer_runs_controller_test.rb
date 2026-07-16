@@ -346,6 +346,39 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  test "destroy removes own timer run" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      end_time: 1.hour.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+
+    assert_difference -> { @user1.timer_runs.count }, -1 do
+      delete "/api/v1/timer_runs/#{timer_run.id}",
+             headers: auth_headers(@token1)
+    end
+
+    assert_response :no_content
+    assert_not TimerRun.exists?(timer_run.id)
+  end
+
+  test "cannot destroy another users timer run" do
+    timer_run = @user2.timer_runs.create!(
+      start_time: 2.hours.ago,
+      end_time: 1.hour.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+
+    assert_no_difference -> { TimerRun.count } do
+      delete "/api/v1/timer_runs/#{timer_run.id}",
+             headers: auth_headers(@token1)
+    end
+
+    assert_response :not_found
+  end
+
   test "create with nursing_left run_type" do
     start_time = 1.hour.ago.iso8601
 

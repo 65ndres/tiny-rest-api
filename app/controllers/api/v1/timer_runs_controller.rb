@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::TimerRunsController < ApplicationController
-  before_action :set_timer_run, only: [:update]
+  before_action :set_timer_run, only: [:update, :destroy]
 
   # GET /api/v1/timer_runs
   # Optional query params: from, to (ISO8601 or YYYY-MM-DD), run_type
@@ -74,6 +74,12 @@ class Api::V1::TimerRunsController < ApplicationController
     else
       submit_timer_run
     end
+  end
+
+  # DELETE /api/v1/timer_runs/:id
+  def destroy
+    @timer_run.destroy!
+    head :no_content
   end
 
   private

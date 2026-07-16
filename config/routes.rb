@@ -36,7 +36,7 @@ Rails.application.routes.draw do
 
       get 'sleep_prediction', to: 'sleep_predictions#show'
 
-      resources :timer_runs, only: [:index, :create, :update] do
+      resources :timer_runs, only: [:index, :create, :update, :destroy] do
         collection do
           get :active
         end
