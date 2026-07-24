@@ -3,6 +3,8 @@ Rails.application.routes.draw do
     namespace :v1 do
       post 'auth/login', to: 'auth#login'
       post 'auth/signup', to: 'auth#signup'
+      post 'auth/signup/verify', to: 'auth#verify_signup'
+      post 'auth/signup/resend', to: 'auth#resend_signup_code'
       delete 'auth/logout', to: 'auth#logout'
       post 'auth/password', to: 'passwords#create'
       post 'auth/password/verify', to: 'passwords#verify_code'

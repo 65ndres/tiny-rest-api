@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_07_08_120000) do
+ActiveRecord::Schema[7.2].define(version: 2026_07_24_180000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -140,6 +140,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_07_08_120000) do
     t.string "baby_name"
     t.integer "daily_nap_count", default: 3, null: false
     t.date "baby_birthdate"
+    t.string "email_verification_code"
+    t.datetime "email_verification_sent_at"
+    t.datetime "email_verified_at"
     t.index ["deleted_at"], name: "index_users_on_deleted_at"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["jti"], name: "index_users_on_jti"

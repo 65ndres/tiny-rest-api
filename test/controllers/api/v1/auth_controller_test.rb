@@ -6,13 +6,18 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     @valid_password = "password123"
   end
 
+  def create_verified_user(email: @valid_email, password: @valid_password)
+    User.create!(
+      email: email,
+      password: password,
+      password_confirmation: password,
+      email_verified_at: Time.current
+    )
+  end
+
   # Login Tests
   test "should login with valid credentials" do
-    user = User.create!(
-      email: @valid_email,
-      password: @valid_password,
-      password_confirmation: @valid_password
-    )
+    user = create_verified_user
 
     post "/api/v1/auth/login", params: {
       email: @valid_email,
@@ -38,11 +43,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should not login with invalid password" do
-    user = User.create!(
-      email: @valid_email,
-      password: @valid_password,
-      password_confirmation: @valid_password
-    )
+    create_verified_user
 
     post "/api/v1/auth/login", params: {
       email: @valid_email,
@@ -74,8 +75,27 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_equal "Invalid credentials", json_response["error"]
   end
 
+  test "should not login when email is unverified" do
+    User.create!(
+      email: @valid_email,
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "123456",
+      email_verification_sent_at: Time.current
+    )
+
+    post "/api/v1/auth/login", params: {
+      email: @valid_email,
+      password: @valid_password
+    }
+
+    assert_response :unauthorized
+    json_response = JSON.parse(response.body)
+    assert_equal "Please verify your email before logging in.", json_response["error"]
+  end
+
   # Signup Tests
-  test "should signup with valid credentials" do
+  test "should signup with valid credentials and require verification" do
     assert_difference "User.count", 1 do
       post "/api/v1/auth/signup", params: {
         email: "newuser@example.com",
@@ -86,9 +106,15 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     json_response = JSON.parse(response.body)
-    assert json_response["token"].present?
-    assert json_response["user"]["id"].present?
-    assert_equal "newuser@example.com", json_response["user"]["email"]
+    assert_nil json_response["token"]
+    assert_equal true, json_response["needs_verification"]
+    assert_equal "newuser@example.com", json_response["email"]
+    assert_equal "Verification code sent", json_response["message"]
+
+    user = User.find_by(email: "newuser@example.com")
+    assert user.email_verified_at.blank?
+    assert user.email_verification_code.present?
+    assert_equal 6, user.email_verification_code.length
   end
 
   test "should not signup with invalid email" do
@@ -105,12 +131,8 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
-  test "should not signup with duplicate email" do
-    User.create!(
-      email: @valid_email,
-      password: @valid_password,
-      password_confirmation: @valid_password
-    )
+  test "should not signup with duplicate verified email" do
+    create_verified_user
 
     assert_no_difference "User.count" do
       post "/api/v1/auth/signup", params: {
@@ -123,6 +145,32 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
     assert json_response["errors"].present?
+  end
+
+  test "should resend code when signup email is unverified" do
+    user = User.create!(
+      email: @valid_email,
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "111111",
+      email_verification_sent_at: 10.minutes.ago
+    )
+
+    assert_no_difference "User.count" do
+      post "/api/v1/auth/signup", params: {
+        email: @valid_email,
+        password: @valid_password,
+        password_confirmation: @valid_password
+      }
+    end
+
+    assert_response :created
+    json_response = JSON.parse(response.body)
+    assert_equal true, json_response["needs_verification"]
+
+    user.reload
+    assert user.email_verification_code.present?
+    assert_not_equal "111111", user.email_verification_code
   end
 
   test "should not signup with password mismatch" do
@@ -166,13 +214,93 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
+  # Signup verification Tests
+  test "should verify signup code and return token" do
+    user = User.create!(
+      email: "newuser@example.com",
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "654321",
+      email_verification_sent_at: Time.current
+    )
+
+    post "/api/v1/auth/signup/verify", params: {
+      email: "newuser@example.com",
+      code: "654321"
+    }
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert json_response["token"].present?
+    assert_equal user.id, json_response["user"]["id"]
+
+    user.reload
+    assert user.email_verified_at.present?
+    assert_nil user.email_verification_code
+  end
+
+  test "should not verify with invalid code" do
+    User.create!(
+      email: "newuser@example.com",
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "654321",
+      email_verification_sent_at: Time.current
+    )
+
+    post "/api/v1/auth/signup/verify", params: {
+      email: "newuser@example.com",
+      code: "000000"
+    }
+
+    assert_response :unauthorized
+    json_response = JSON.parse(response.body)
+    assert_equal "Invalid or expired code", json_response["error"]
+  end
+
+  test "should not verify with expired code" do
+    User.create!(
+      email: "newuser@example.com",
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "654321",
+      email_verification_sent_at: 2.hours.ago
+    )
+
+    post "/api/v1/auth/signup/verify", params: {
+      email: "newuser@example.com",
+      code: "654321"
+    }
+
+    assert_response :unauthorized
+    json_response = JSON.parse(response.body)
+    assert_equal "Invalid or expired code", json_response["error"]
+  end
+
+  test "should resend signup verification code" do
+    user = User.create!(
+      email: "newuser@example.com",
+      password: @valid_password,
+      password_confirmation: @valid_password,
+      email_verification_code: "111111",
+      email_verification_sent_at: 10.minutes.ago
+    )
+
+    post "/api/v1/auth/signup/resend", params: {
+      email: "newuser@example.com"
+    }
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert json_response["message"].present?
+
+    user.reload
+    assert_not_equal "111111", user.email_verification_code
+  end
+
   # Logout Tests
   test "should logout with valid token" do
-    user = User.create!(
-      email: @valid_email,
-      password: @valid_password,
-      password_confirmation: @valid_password
-    )
+    create_verified_user
 
     # Get a token by logging in first
     post "/api/v1/auth/login", params: {
@@ -216,11 +344,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should logout with expired token" do
-    user = User.create!(
-      email: @valid_email,
-      password: @valid_password,
-      password_confirmation: @valid_password
-    )
+    user = create_verified_user
 
     # Create an expired token manually using the same secret as devise-jwt
     expired_payload = {
@@ -229,7 +353,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
       exp: 1.hour.ago.to_i,
       iat: 2.hours.ago.to_i
     }
-    
+
     require 'jwt'
     # Use the same secret key that devise-jwt uses
     secret = ENV['DEVISE_JWT_SECRET_KEY'].presence || Rails.application.secret_key_base
@@ -257,4 +381,3 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert json_response["error"].present?
   end
 end
-

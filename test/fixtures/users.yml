@@ -5,12 +5,14 @@ one:
   last_name: MyString
   email: fixture_user_one@example.com
   encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  email_verified_at: <%= Time.current %>
 
 two:
   first_name: MyString
   last_name: MyString
   email: fixture_user_two@example.com
   encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  email_verified_at: <%= Time.current %>
 
 support:
   first_name: Support
@@ -18,3 +20,4 @@ support:
   email: support_agent_fixture@example.com
   username: Support
   encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
+  email_verified_at: <%= Time.current %>
