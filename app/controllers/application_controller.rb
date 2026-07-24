@@ -4,7 +4,9 @@ class ApplicationController < ActionController::API
   before_action :authenticate_user!, unless: :public_endpoint?
 
   def authenticate_user!
-    head :unauthorized unless authorized?
+    return if authorized?
+
+    head :unauthorized
   end
 
   def authorized?

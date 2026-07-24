@@ -77,9 +77,13 @@ class Api::V1::TimerRunsController < ApplicationController
   end
 
   # DELETE /api/v1/timer_runs/:id
+  # Works for active (in-progress) and submitted runs.
   def destroy
     @timer_run.destroy!
     head :no_content
+  rescue ActiveRecord::RecordNotDestroyed => e
+    render json: { error: e.message.presence || 'Could not delete timer run' },
+           status: :unprocessable_entity
   end
 
   private
@@ -181,10 +185,16 @@ class Api::V1::TimerRunsController < ApplicationController
   end
 
   def set_timer_run
+    unless current_user
+      render json: { error: 'Unauthorized' }, status: :unauthorized
+      return
+    end
+
     @timer_run = current_user.timer_runs.find_by(id: params[:id])
     return if @timer_run
 
     render json: { error: 'Timer run not found' }, status: :not_found
+    nil
   end
 
   def boolean_param(key)
