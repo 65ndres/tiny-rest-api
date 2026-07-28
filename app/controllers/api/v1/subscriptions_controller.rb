@@ -129,11 +129,12 @@ class Api::V1::SubscriptionsController < ApplicationController
       currency: 'usd',
       active: true
     )
-    current_user.onboarding.update!(completed_at: Time.current)
-    
-    render json: { subscription: subscription }, status: :created
+    current_user.onboarding.update!(
+      completed_at: Time.current,
+      last_completed_step: 'paywall'
+    )
 
-    
+    render json: { subscription: subscription }, status: :created
   end
 
   def create_pro_subscription
@@ -199,8 +200,10 @@ class Api::V1::SubscriptionsController < ApplicationController
         active: true
       )
     end
-    # current_user.update!(onboarding_completed: true)
-    current_user.onboarding.update!(completed_at: Time.current)
+    current_user.onboarding.update!(
+      completed_at: Time.current,
+      last_completed_step: 'paywall'
+    )
     render json: {
       success: true,
       created_from: active_subscriptions.keys,

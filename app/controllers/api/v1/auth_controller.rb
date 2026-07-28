@@ -55,8 +55,7 @@ class Api::V1::AuthController < ApplicationController
       existing.password = password
       existing.password_confirmation = password_confirmation
       if existing.save
-        issue_verification_code!(existing)
-        return render json: verification_pending_payload(existing), status: :created
+        return render_signup_success(existing)
       else
         return render json: {
           message: 'Validation failed',
@@ -71,8 +70,7 @@ class Api::V1::AuthController < ApplicationController
       password_confirmation: password_confirmation
     )
     if user.save
-      issue_verification_code!(user)
-      render json: verification_pending_payload(user), status: :created
+      render_signup_success(user)
     else
       render json: {
         message: 'Validation failed',
@@ -188,6 +186,22 @@ class Api::V1::AuthController < ApplicationController
     }
   end
 
+  # Production: email code confirmation. Non-production: auto-verify and return JWT.
+  def render_signup_success(user)
+    if Rails.env.production?
+      issue_verification_code!(user)
+      render json: verification_pending_payload(user), status: :created
+    else
+      user.update!(
+        email_verified_at: Time.current,
+        email_verification_code: nil,
+        email_verification_sent_at: nil
+      )
+      token = Warden::JWTAuth::UserEncoder.new.call(user, :user, nil).first
+      render json: { token: token, user: user_auth_payload(user) }, status: :created
+    end
+  end
+
   def generate_verification_code
     rand(100000..999999).to_s
   end
@@ -208,9 +222,20 @@ class Api::V1::AuthController < ApplicationController
   end
 
   def send_verification_code_email(user, code)
-    return if Rails.env.test?
+    unless Rails.env.production?
+      Rails.logger.info(
+        "Skipping signup verification email outside production " \
+        "(env=#{Rails.env}, email=#{user.email}, code=#{code})"
+      )
+      return
+    end
 
-    api_key = ENV.fetch('SENDGRID_API_KEY')
+    api_key = ENV['SENDGRID_API_KEY']
+    unless api_key.present?
+      Rails.logger.warn 'SENDGRID_API_KEY missing; skipping signup verification email'
+      return
+    end
+
     from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'afre92@gmail.com'))
     to = Email.new(email: user.email)
     subject = 'Verify your TinyRest account'

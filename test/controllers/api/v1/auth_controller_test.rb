@@ -95,7 +95,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Signup Tests
-  test "should signup with valid credentials and require verification" do
+  test "should signup with valid credentials and auto-verify outside production" do
     assert_difference "User.count", 1 do
       post "/api/v1/auth/signup", params: {
         email: "newuser@example.com",
@@ -106,15 +106,44 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     json_response = JSON.parse(response.body)
-    assert_nil json_response["token"]
-    assert_equal true, json_response["needs_verification"]
-    assert_equal "newuser@example.com", json_response["email"]
-    assert_equal "Verification code sent", json_response["message"]
+    assert json_response["token"].present?
+    assert_equal "newuser@example.com", json_response["user"]["email"]
+    assert_nil json_response["needs_verification"]
 
     user = User.find_by(email: "newuser@example.com")
-    assert user.email_verified_at.blank?
-    assert user.email_verification_code.present?
-    assert_equal 6, user.email_verification_code.length
+    assert user.email_verified_at.present?
+    assert_nil user.email_verification_code
+  end
+
+  test "should signup with valid credentials and require verification in production" do
+    previous_env = Rails.instance_variable_get(:@_env)
+    Rails.instance_variable_set(
+      :@_env,
+      ActiveSupport::EnvironmentInquirer.new("production")
+    )
+
+    begin
+      assert_difference "User.count", 1 do
+        post "/api/v1/auth/signup", params: {
+          email: "produser@example.com",
+          password: @valid_password,
+          password_confirmation: @valid_password
+        }
+      end
+
+      assert_response :created
+      json_response = JSON.parse(response.body)
+      assert_nil json_response["token"]
+      assert_equal true, json_response["needs_verification"]
+      assert_equal "produser@example.com", json_response["email"]
+
+      user = User.find_by(email: "produser@example.com")
+      assert user.email_verified_at.blank?
+      assert user.email_verification_code.present?
+      assert_equal 6, user.email_verification_code.length
+    ensure
+      Rails.instance_variable_set(:@_env, previous_env)
+    end
   end
 
   test "should not signup with invalid email" do
@@ -147,7 +176,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
-  test "should resend code when signup email is unverified" do
+  test "should auto-verify unverified email on signup outside production" do
     user = User.create!(
       email: @valid_email,
       password: @valid_password,
@@ -166,11 +195,11 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     json_response = JSON.parse(response.body)
-    assert_equal true, json_response["needs_verification"]
+    assert json_response["token"].present?
 
     user.reload
-    assert user.email_verification_code.present?
-    assert_not_equal "111111", user.email_verification_code
+    assert user.email_verified_at.present?
+    assert_nil user.email_verification_code
   end
 
   test "should not signup with password mismatch" do

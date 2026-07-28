@@ -34,6 +34,8 @@ Rails.application.routes.draw do
       post 'receipts', to: 'subscriptions#receipts'
 
       get 'onboarding', to: 'onboarding#show'
+      patch 'onboarding', to: 'onboarding#update'
+      put 'onboarding', to: 'onboarding#update'
       get 'onboarding/completed_onboarding', to: 'onboarding#completed_onboarding'
 
       get 'sleep_prediction', to: 'sleep_predictions#show'
