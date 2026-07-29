@@ -131,7 +131,7 @@ class Api::V1::PasswordsController < ApplicationController
     #   raise "SendGrid API key is not configured. Please set SENDGRID_API_KEY environment variable."
     # end
 
-    from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'afre92@gmail.com'))
+    from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'tinyrest.app.support@gmail.com'))
     to = Email.new(email: user.email)
     subject = 'Password Reset Code'
     

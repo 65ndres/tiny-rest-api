@@ -1,4 +1,4 @@
 class ApplicationMailer < ActionMailer::Base
-  default from: ENV.fetch('MAILER_FROM', 'afre92@gmail.com')
+  default from: ENV.fetch('MAILER_FROM', 'tinyrest.app.support@gmail.com')
   layout "mailer"
 end

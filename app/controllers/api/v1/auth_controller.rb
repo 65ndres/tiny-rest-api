@@ -236,7 +236,7 @@ class Api::V1::AuthController < ApplicationController
       return
     end
 
-    from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'afre92@gmail.com'))
+    from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'tinyrest.app.support@gmail.com'))
     to = Email.new(email: user.email)
     subject = 'Verify your TinyRest account'
 
