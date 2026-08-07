@@ -24,4 +24,88 @@ class TimerRunTest < ActiveSupport::TestCase
 
     assert timer_run.valid?
   end
+
+  test 'sleeping run is invalid when end_time is before start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time - 1.minute,
+      duration: 60_000,
+      submitted: true,
+      run_type: :sleeping
+    )
+
+    assert_not timer_run.valid?
+    assert_includes timer_run.errors[:end_time], 'must be after start time'
+  end
+
+  test 'sleeping run is invalid when end_time equals start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time,
+      duration: 0,
+      submitted: true,
+      run_type: :sleeping
+    )
+
+    assert_not timer_run.valid?
+    assert_includes timer_run.errors[:end_time], 'must be after start time'
+  end
+
+  test 'nursing run is invalid when end_time is before start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time - 5.minutes,
+      duration: 300_000,
+      submitted: true,
+      run_type: :nursing_left
+    )
+
+    assert_not timer_run.valid?
+    assert_includes timer_run.errors[:end_time], 'must be after start time'
+  end
+
+  test 'sleeping run is valid when end_time is after start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time + 30.minutes,
+      duration: 1_800_000,
+      submitted: true,
+      run_type: :sleeping
+    )
+
+    assert timer_run.valid?
+  end
+
+  test 'bottle run allows end_time equal to start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time,
+      duration: 0,
+      submitted: true,
+      run_type: :bottle,
+      active: false
+    )
+
+    assert timer_run.valid?
+  end
+
+  test 'bottle run is invalid when end_time is before start_time' do
+    start_time = Time.zone.parse('2026-06-01 12:00:00')
+    timer_run = @user.timer_runs.build(
+      start_time: start_time,
+      end_time: start_time - 1.minute,
+      duration: 0,
+      submitted: true,
+      run_type: :bottle,
+      active: false
+    )
+
+    assert_not timer_run.valid?
+    assert_includes timer_run.errors[:end_time], 'must be after start time'
+  end
 end

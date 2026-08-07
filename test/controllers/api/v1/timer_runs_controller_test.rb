@@ -248,6 +248,28 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_not timer_run.active?
   end
 
+  test "update rejects end_time before start_time" do
+    start_time = Time.zone.parse("2026-06-01 12:00:00")
+    timer_run = @user1.timer_runs.create!(
+      start_time: start_time,
+      submitted: false,
+      active: true
+    )
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: {
+            end_time: (start_time - 1.minute).iso8601,
+            duration: 60_000,
+            submitted: true
+          },
+          headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_includes json_response["errors"], "End time must be after start time"
+    assert_not timer_run.reload.submitted?
+  end
+
   test "index filters by from and to range overlap" do
     in_range = @user1.timer_runs.create!(
       start_time: Time.zone.parse("2026-05-28 10:00:00"),

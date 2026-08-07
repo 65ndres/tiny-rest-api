@@ -16,6 +16,9 @@ class TimerRun < ApplicationRecord
   validates :start_time, presence: true
   validates :end_time, :duration, presence: true, if: :submitted?
   validate :submitted_must_be_true_when_completed, if: -> { end_time.present? && duration.present? }
+  # end_time must be after start_time for sleep/nursing; bottle feedings may use
+  # end_time == start_time (duration 0 instant events).
+  validate :end_time_must_be_after_start_time, if: -> { start_time.present? && end_time.present? }
   validate :paused_only_when_not_submitted
   validate :metadata_must_be_hash
 
@@ -57,6 +60,13 @@ class TimerRun < ApplicationRecord
     return if submitted?
 
     errors.add(:submitted, "must be true when end_time and duration are set")
+  end
+
+  def end_time_must_be_after_start_time
+    return if bottle? && end_time == start_time
+    return if end_time > start_time
+
+    errors.add(:end_time, "must be after start time")
   end
 
   def metadata_must_be_hash
