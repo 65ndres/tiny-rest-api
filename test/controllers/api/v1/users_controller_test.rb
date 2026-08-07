@@ -97,6 +97,27 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "NewFirst", @user1.first_name
   end
 
+  test "should update password with confirmation via post user" do
+    new_password = "newSecurePass99"
+
+    post "/api/v1/user",
+         params: {
+           user: {
+             password: new_password,
+             password_confirmation: new_password
+           }
+         },
+         headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal "Profile updated successfully", json_response["message"]
+
+    @user1.reload
+    assert @user1.valid_password?(new_password)
+    assert_not @user1.valid_password?("password123")
+  end
+
   test "should not update user profile with invalid email" do
     patch "/api/v1/user",
           params: {

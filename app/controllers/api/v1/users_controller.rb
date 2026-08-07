@@ -95,7 +95,9 @@ class Api::V1::UsersController < ApplicationController
       :username,
       :baby_name,
       :baby_birthdate,
-      :daily_nap_count
+      :daily_nap_count,
+      :password,
+      :password_confirmation
     )
   end
 
