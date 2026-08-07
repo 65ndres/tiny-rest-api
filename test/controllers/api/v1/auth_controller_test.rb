@@ -95,7 +95,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
   end
 
   # Signup Tests
-  test "should signup with valid credentials and auto-verify outside production" do
+  test "should signup with valid credentials and auto-verify in test" do
     assert_difference "User.count", 1 do
       post "/api/v1/auth/signup", params: {
         email: "newuser@example.com",
@@ -113,6 +113,37 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     user = User.find_by(email: "newuser@example.com")
     assert user.email_verified_at.present?
     assert_nil user.email_verification_code
+  end
+
+  test "should signup with valid credentials and require verification in development" do
+    previous_env = Rails.instance_variable_get(:@_env)
+    Rails.instance_variable_set(
+      :@_env,
+      ActiveSupport::EnvironmentInquirer.new("development")
+    )
+
+    begin
+      assert_difference "User.count", 1 do
+        post "/api/v1/auth/signup", params: {
+          email: "devuser@example.com",
+          password: @valid_password,
+          password_confirmation: @valid_password
+        }
+      end
+
+      assert_response :created
+      json_response = JSON.parse(response.body)
+      assert_nil json_response["token"]
+      assert_equal true, json_response["needs_verification"]
+      assert_equal "devuser@example.com", json_response["email"]
+
+      user = User.find_by(email: "devuser@example.com")
+      assert user.email_verified_at.blank?
+      assert user.email_verification_code.present?
+      assert_equal 6, user.email_verification_code.length
+    ensure
+      Rails.instance_variable_set(:@_env, previous_env)
+    end
   end
 
   test "should signup with valid credentials and require verification in production" do
@@ -176,7 +207,7 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
-  test "should auto-verify unverified email on signup outside production" do
+  test "should auto-verify unverified email on signup in test" do
     user = User.create!(
       email: @valid_email,
       password: @valid_password,

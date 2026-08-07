@@ -186,9 +186,10 @@ class Api::V1::AuthController < ApplicationController
     }
   end
 
-  # Production: email code confirmation. Non-production: auto-verify and return JWT.
+  # Development + production: email code confirmation.
+  # Test: auto-verify and return JWT so specs stay offline.
   def render_signup_success(user)
-    if Rails.env.production?
+    if email_verification_required?
       issue_verification_code!(user)
       render json: verification_pending_payload(user), status: :created
     else
@@ -200,6 +201,10 @@ class Api::V1::AuthController < ApplicationController
       token = Warden::JWTAuth::UserEncoder.new.call(user, :user, nil).first
       render json: { token: token, user: user_auth_payload(user) }, status: :created
     end
+  end
+
+  def email_verification_required?
+    !Rails.env.test?
   end
 
   def generate_verification_code
@@ -222,15 +227,16 @@ class Api::V1::AuthController < ApplicationController
   end
 
   def send_verification_code_email(user, code)
-    unless Rails.env.production?
+    if Rails.env.test?
       Rails.logger.info(
-        "Skipping signup verification email outside production " \
-        "(env=#{Rails.env}, email=#{user.email}, code=#{code})"
+        "Skipping signup verification email in test " \
+        "(email=#{user.email}, code=#{code})"
       )
       return
     end
 
     api_key = ENV['SENDGRID_API_KEY']
+
     unless api_key.present?
       Rails.logger.warn 'SENDGRID_API_KEY missing; skipping signup verification email'
       return
