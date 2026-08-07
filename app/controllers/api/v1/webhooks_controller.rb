@@ -118,7 +118,7 @@ class Api::V1::WebhooksController < ApplicationController
       return sub if sub
     end
 
-    user.subscriptions.order(created_at: :desc).first
+    user.active_subscription || user.subscriptions.order(created_at: :desc).first
   end
 
   def create_subscription_event(user, subscription, event_type, processor_event_id, data)

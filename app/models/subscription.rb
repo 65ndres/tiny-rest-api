@@ -22,30 +22,35 @@ class Subscription < ApplicationRecord
     cancelled: 2
   }
 
-  # Scopes
   scope :active_subscriptions, -> { where(status: :active) }
-  scope :inactive_subscriptions, -> { where(status: :expired) }
+  scope :inactive_subscriptions, -> { where(status: [:expired, :cancelled]) }
 
-  # after_create :deactivate_other_subscriptions_for_user, if: :active?
-  # after_update :destroy_token, if: :expired?
-  # after_update :destroy_token, if: :cancelled?
+  before_validation :sync_active_flag
+  before_save :deactivate_other_subscriptions_for_user, if: :should_deactivate_siblings?
 
   private
 
+  # Keep boolean `active` mirrored to status enum (avoid `active?` — conflicts with the column).
+  def sync_active_flag
+    write_attribute(:active, status_active_value?)
+  end
+
+  def status_active_value?
+    status.to_s == "active"
+  end
+
+  def should_deactivate_siblings?
+    status_active_value? && (new_record? || will_save_change_to_status?)
+  end
+
+  # Expire other active rows before save so the unique partial index cannot fail.
   def deactivate_other_subscriptions_for_user
-    user.subscriptions.where.not(id: id).update_all(status: :expired)
-  end
-
-  def destroy_token
-    user.token.destroy
-  end
-
-  def destroy_token_if_expired
-    user.token.destroy if expired?
-  end
-
-  def destroy_token_if_cancelled
-    user.token.destroy if cancelled?
+    scope = user.subscriptions.active_subscriptions
+    scope = scope.where.not(id: id) if id.present?
+    scope.update_all(
+      status: Subscription.statuses[:expired],
+      active: false,
+      updated_at: Time.current
+    )
   end
 end
-

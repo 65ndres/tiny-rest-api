@@ -7,6 +7,6 @@ class UserSerializer
   end
 
   def subscription_type
-    object.subscriptions.select { |sb| sb.active == true }.first.subscription_type
+    object.current_subscription&.subscription_type
   end
 end

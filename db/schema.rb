@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_07_26_120000) do
+ActiveRecord::Schema[7.2].define(version: 2026_08_07_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -92,7 +92,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_07_26_120000) do
     t.integer "status", default: 0, null: false
     t.string "processor_id"
     t.index ["user_id"], name: "index_subscriptions_on_user_id"
-    t.index ["user_id"], name: "index_subscriptions_on_user_id_active_unique", unique: true, where: "(subscription_type = 0)"
+    t.index ["user_id"], name: "index_subscriptions_on_user_id_status_active_unique", unique: true, where: "(status = 0)"
   end
 
   create_table "timer_runs", force: :cascade do |t|

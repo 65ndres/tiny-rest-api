@@ -1,8 +1,7 @@
 class Api::V1::SubscriptionsController < ApplicationController
   def status
     if current_user
-      subscription = current_user.active_subscription
-      subscription_status = current_user.subscription_status
+      subscription = current_user.current_subscription
 
       response_data = {}
       if subscription
@@ -11,12 +10,11 @@ class Api::V1::SubscriptionsController < ApplicationController
           subscription_type: subscription.subscription_type_before_type_cast,
           amount: subscription.amount,
           currency: subscription.currency,
-          created_at: subscription.created_at + 14.days          
+          created_at: subscription.created_at + 14.days
         }
       else
         response_data[:subscription] = nil
       end
-      # binding.irb
 
       render json: response_data, status: :ok
     else
@@ -24,9 +22,8 @@ class Api::V1::SubscriptionsController < ApplicationController
     end
   end
 
-
   def show
-    subscription = current_user.subscriptions.first
+    subscription = current_user.current_subscription
     render json: { subscription: subscription }, status: :ok
   end
 
@@ -80,9 +77,9 @@ class Api::V1::SubscriptionsController < ApplicationController
     end
 
     app_user_id = params[:app_user_id] || current_user.id.to_s
-    
+
     subscriber_data = RevenuecatService.get_subscriber_info(app_user_id)
-    
+
     unless subscriber_data
       return render json: {
         success: false,
@@ -115,19 +112,13 @@ class Api::V1::SubscriptionsController < ApplicationController
     }, status: :internal_server_error
   end
 
-  def show
-    subscription = current_user.subscriptions.first
-    render json: { subscriptions: subscription }, status: :ok
-  end
-
-
   def create_basic_subscription
     subscription = current_user.subscriptions.create!(
       subscription_type: :basic,
       processor: :apple,
       amount: 299.0,
       currency: 'usd',
-      active: true
+      status: :active
     )
     current_user.onboarding.update!(
       completed_at: Time.current,
@@ -154,7 +145,7 @@ class Api::V1::SubscriptionsController < ApplicationController
         subscriptions_by_product_identifier_param || {}
       end
 
-    active_subscriptions =
+    active_rc_subscriptions =
       subscriptions_by_product_identifier.select do |_product_identifier, subscription_data|
         subscription_data_hash =
           subscription_data.is_a?(ActionController::Parameters) ? subscription_data.to_unsafe_h : subscription_data
@@ -162,52 +153,53 @@ class Api::V1::SubscriptionsController < ApplicationController
         subscription_data_hash.is_a?(Hash) && subscription_data_hash['isActive'] == true
       end
 
-    if active_subscriptions.empty?
+    if active_rc_subscriptions.empty?
       return render json: { success: false, error: 'No active subscriptions found' }, status: :unprocessable_entity
     end
 
-    created_subscriptions = active_subscriptions.map do |product_identifier, subscription_data|
-      subscription_data_hash =
-        subscription_data.is_a?(ActionController::Parameters) ? subscription_data.to_unsafe_h : subscription_data
+    # One active subscription per user: persist a single pro row from the first active RC product.
+    product_identifier, subscription_data = active_rc_subscriptions.first
+    subscription_data_hash =
+      subscription_data.is_a?(ActionController::Parameters) ? subscription_data.to_unsafe_h : subscription_data
 
-      store = subscription_data_hash['store'] || subscription_data_hash[:store] || 'APP_STORE'
-      processor =
-        case store.to_s.upcase
-        when 'APP_STORE' then :apple
-        when 'PLAY_STORE', 'GOOGLE_PLAY' then :google
-        else :apple
-        end
+    store = subscription_data_hash['store'] || subscription_data_hash[:store] || 'APP_STORE'
+    processor =
+      case store.to_s.upcase
+      when 'APP_STORE' then :apple
+      when 'PLAY_STORE', 'GOOGLE_PLAY' then :google
+      else :apple
+      end
 
-      price = subscription_data_hash['price'] || subscription_data_hash[:price] || {}
-      amount = price['amount'] || price[:amount] || 0
-      currency = (price['currency'] || price[:currency] || 'usd').to_s.downcase
+    price = subscription_data_hash['price'] || subscription_data_hash[:price] || {}
+    amount = price['amount'] || price[:amount] || 0
+    currency = (price['currency'] || price[:currency] || 'usd').to_s.downcase
 
-      expires_date =
-        subscription_data_hash['expiresDate'] ||
-        subscription_data_hash[:expiresDate] ||
-        subscription_data_hash['expirationDate'] ||
-        subscription_data_hash[:expirationDate]
+    expires_date =
+      subscription_data_hash['expiresDate'] ||
+      subscription_data_hash[:expiresDate] ||
+      subscription_data_hash['expirationDate'] ||
+      subscription_data_hash[:expirationDate]
 
-      expiration_date =
-        expires_date.present? ? Time.parse(expires_date.to_s).to_date : nil
+    expiration_date =
+      expires_date.present? ? Time.parse(expires_date.to_s).to_date : nil
 
-      current_user.subscriptions.create!(
-        subscription_type: :pro,
-        processor: processor,
-        amount: amount,
-        currency: currency,
-        expiration_date: expiration_date,
-        active: true
-      )
-    end
+    subscription = current_user.subscriptions.create!(
+      subscription_type: :pro,
+      processor: processor,
+      amount: amount,
+      currency: currency,
+      expiration_date: expiration_date,
+      status: :active
+    )
+
     current_user.onboarding.update!(
       completed_at: Time.current,
       last_completed_step: 'paywall'
     )
     render json: {
       success: true,
-      created_from: active_subscriptions.keys,
-      subscriptions: created_subscriptions
+      created_from: [product_identifier],
+      subscriptions: [subscription]
     }, status: :created
   rescue ArgumentError => e
     Rails.logger.error("create_pro_subscription error: #{e.class} - #{e.message}")

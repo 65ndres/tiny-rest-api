@@ -104,7 +104,6 @@ class RevenuecatService
         subscription_type: "pro",
         amount: plan&.amount || 0,
         status: subscription_status,
-        active: subscription_status == :active,
         currency: plan&.currency || 'usd'
       )
       

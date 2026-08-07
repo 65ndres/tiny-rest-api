@@ -12,19 +12,15 @@ class User < ApplicationRecord
 
   # Subscription associations
   has_many :subscriptions, dependent: :destroy
-  has_one :active_subscription, -> { where(subscription_type: :free_trial) }, class_name: 'Subscription'
+  has_one :active_subscription, -> { where(status: :active) }, class_name: 'Subscription'
 
   def latest_subscription
     subscriptions.order(created_at: :desc).first
   end
 
-  # Block account deletion only while the latest subscription row has `status: :active`.
-  # RevenueCat paths update `status` (via webhooks/sync); relying on that avoids stale boolean `active` values.
+  # Block account deletion only while there is an active subscription.
   def cannot_delete_account_due_to_subscription?
-    sub = latest_subscription
-    return false unless sub
-
-    Subscription.active_subscriptions.exists?(id: sub.id)
+    current_subscription.present?
   end
 
   # Onboarding
@@ -105,7 +101,7 @@ class User < ApplicationRecord
 
 
   def subscription_type
-    subscriptions.last.subscription_type
+    current_subscription&.subscription_type
   end
 
   # def create_admin_conversation
@@ -115,10 +111,7 @@ class User < ApplicationRecord
   # end
 
   def subscription_status
-    subscription = active_subscription
-    return 'free_trial' unless subscription
-    
-    subscription.subscription_type || 'free_trial'
+    current_subscription&.subscription_type
   end
 
   # Custom JWT claims – included in the token on login/signup
@@ -131,9 +124,14 @@ class User < ApplicationRecord
   end
 
   # Used for JWT claims and API payloads that need to include subscription info.
-  # Returns `nil` when the user has no subscription records.
+  # Returns `nil` when the user has no active subscription.
+  # Queries fresh to avoid a stale has_one cache after creates in the same request.
   def subscription_type_for_payload
-    subscriptions.order(created_at: :desc).first&.subscription_type
+    current_subscription&.subscription_type
+  end
+
+  def current_subscription
+    subscriptions.active_subscriptions.order(created_at: :desc).first
   end
 
   def baby_birthdate_must_be_valid
