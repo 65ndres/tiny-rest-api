@@ -270,6 +270,43 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_not timer_run.reload.submitted?
   end
 
+  test "create rejects start_time in the future" do
+    future_start = 1.hour.from_now.iso8601
+
+    assert_no_difference -> { @user1.timer_runs.count } do
+      post "/api/v1/timer_runs",
+           params: { start_time: future_start },
+           headers: auth_headers(@token1)
+    end
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_includes json_response["errors"], "Start time cannot be in the future"
+  end
+
+  test "update rejects start_time in the future" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 2.hours.ago,
+      submitted: false,
+      active: true
+    )
+    future_start = 1.hour.from_now
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: {
+            start_time: future_start.iso8601,
+            end_time: (future_start + 30.minutes).iso8601,
+            duration: 1_800_000,
+            submitted: true
+          },
+          headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert_includes json_response["errors"], "Start time cannot be in the future"
+    assert_not timer_run.reload.submitted?
+  end
+
   test "index filters by from and to range overlap" do
     in_range = @user1.timer_runs.create!(
       start_time: Time.zone.parse("2026-05-28 10:00:00"),

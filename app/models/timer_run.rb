@@ -16,6 +16,8 @@ class TimerRun < ApplicationRecord
   validates :start_time, presence: true
   validates :end_time, :duration, presence: true, if: :submitted?
   validate :submitted_must_be_true_when_completed, if: -> { end_time.present? && duration.present? }
+  # Allow ~1 minute skew so "now" presses are not rejected.
+  validate :start_time_must_not_be_in_the_future, if: -> { start_time.present? }
   # end_time must be after start_time for sleep/nursing; bottle feedings may use
   # end_time == start_time (duration 0 instant events).
   validate :end_time_must_be_after_start_time, if: -> { start_time.present? && end_time.present? }
@@ -60,6 +62,12 @@ class TimerRun < ApplicationRecord
     return if submitted?
 
     errors.add(:submitted, "must be true when end_time and duration are set")
+  end
+
+  def start_time_must_not_be_in_the_future
+    return if start_time <= Time.current + 1.minute
+
+    errors.add(:start_time, "cannot be in the future")
   end
 
   def end_time_must_be_after_start_time
