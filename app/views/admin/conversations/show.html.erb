@@ -1,0 +1,32 @@
+<section class="page">
+  <div class="page-header">
+    <p><%= link_to '← All conversations', admin_conversations_path, class: 'back-link' %></p>
+    <h1><%= @customer&.email || @customer&.username || 'Support conversation' %></h1>
+    <% if @customer %>
+      <p class="muted">
+        <%= [@customer.first_name, @customer.last_name].compact.join(' ').presence || @customer.username %>
+      </p>
+    <% end %>
+  </div>
+
+  <div class="message-thread">
+    <% @messages.each do |message| %>
+      <% from_support = message.sender_id == current_support_user.id %>
+      <article class="message <%= from_support ? 'from-support' : 'from-user' %>">
+        <header>
+          <strong><%= from_support ? 'Support' : (@customer&.email || 'User') %></strong>
+          <time class="muted"><%= message.created_at.strftime('%b %d, %Y %I:%M %p') %></time>
+        </header>
+        <p><%= simple_format(h(message.body)) %></p>
+      </article>
+    <% end %>
+  </div>
+
+  <%= form_with url: admin_conversation_messages_path(@conversation), method: :post, local: true, class: 'reply-form stack' do %>
+    <label>
+      Reply
+      <textarea name="body" rows="4" required placeholder="Write a reply…"></textarea>
+    </label>
+    <button type="submit" class="btn btn-primary">Send reply</button>
+  <% end %>
+</section>

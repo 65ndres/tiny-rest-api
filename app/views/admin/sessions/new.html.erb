@@ -1,0 +1,19 @@
+<section class="auth-card">
+  <h1>Support login</h1>
+  <p class="muted">
+    Sign in with <code>support.tinyrest.app@gmail.com</code>.
+    Password is <code>SUPPORT_USER_PASSWORD</code> from the API <code>.env</code> (no signup).
+  </p>
+
+  <%= form_with url: admin_login_path, method: :post, local: true, class: 'stack' do %>
+    <label>
+      Email
+      <input type="email" name="email" required autocomplete="username" value="<%= params[:email] %>">
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit" class="btn btn-primary">Sign in</button>
+  <% end %>
+</section>

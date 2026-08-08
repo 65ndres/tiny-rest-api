@@ -27,7 +27,12 @@ class Api::V1::ConversationsController < ApplicationController
   end
 
   def admin_conversation
-    conversation = Conversation.find_by(conversation_type: 1)
+    unless User.support_account
+      return render json: { error: 'Support is unavailable' }, status: :service_unavailable
+    end
+
+    conversation = Conversation.find_or_create_support_for!(current_user)
+
     render json: {
       id: conversation.id,
       current_user_id: current_user.id,
@@ -42,6 +47,8 @@ class Api::V1::ConversationsController < ApplicationController
         }
       end
     }, status: :ok
+  rescue ArgumentError, ActiveRecord::RecordNotFound => e
+    render json: { error: e.message }, status: :unprocessable_entity
   end
 
   def new

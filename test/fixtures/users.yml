@@ -16,8 +16,8 @@ two:
 
 support:
   first_name: Support
-  last_name: Agent
-  email: support_agent_fixture@example.com
+  last_name: Team
+  email: support.tinyrest.app@gmail.com
   username: Support
   encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
   email_verified_at: <%= Time.current %>

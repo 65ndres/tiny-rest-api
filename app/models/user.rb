@@ -1,6 +1,13 @@
 class User < ApplicationRecord
   include Devise::JWT::RevocationStrategies::JTIMatcher
 
+  SUPPORT_EMAIL = 'support.tinyrest.app@gmail.com'
+  SUPPORT_USERNAME = 'Support'
+  WELCOME_MESSAGE_BODY =
+    "Welcome to TinyRest! We're glad you're here. If you have any questions " \
+    "or need help with naps, feeding, or your account, reply here anytime — " \
+    "we're happy to help."
+
   devise :database_authenticatable, :registerable, :recoverable, :validatable, :jwt_authenticatable, jwt_revocation_strategy: self
 
   # Messaging associations
@@ -35,8 +42,16 @@ class User < ApplicationRecord
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
 
+  def self.support_account
+    find_by(email: SUPPORT_EMAIL) || find_by(username: SUPPORT_USERNAME)
+  end
+
+  def support_account?
+    email == SUPPORT_EMAIL || username == SUPPORT_USERNAME
+  end
+
   after_create :generate_username
-  # after_create :send_welcome_message
+  after_create :send_welcome_message
   after_create :setup_onboarding
   # after_create :create_free_trial_subscription
   
@@ -79,20 +94,23 @@ class User < ApplicationRecord
   end
 
   def send_welcome_message
-    return if self.username == "Support"
-    conversation = Conversation.new(name: "Support", conversation_type: 1)
-    support_user = User.find_by(username: "Support")
-    conversation.users << self
-    conversation.users << support_user
-    conversation.save!
+    return if support_account?
 
-    welcome_message = "Welcome to Promesas! We're so glad you're here. We hope you find peace, inspiration, and strength through God's word. If you have any questions or need support, feel free to reach out to us anytime. Blessings!"
-    
-    conversation.messages.create(
-      body: welcome_message,
-      sender_id: support_user.id
+    support_user = User.support_account
+    unless support_user
+      Rails.logger.warn("Support user missing; skipping welcome message for user #{id}")
+      return
+    end
+
+    conversation = Conversation.find_or_create_support_for!(self)
+    return if conversation.messages.exists?
+
+    conversation.messages.create!(
+      body: WELCOME_MESSAGE_BODY,
+      sender: support_user
     )
-    # conversation.save!
+  rescue StandardError => e
+    Rails.logger.error("Failed to send welcome message for user #{id}: #{e.message}")
   end
 
   def setup_onboarding

@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TinyRest Support</title>
+    <link rel="stylesheet" href="/admin.css">
+  </head>
+  <body class="admin">
+    <header class="admin-header">
+      <div class="admin-header-inner">
+        <a href="<%= admin_root_path %>" class="brand">TinyRest Support</a>
+        <% if current_support_user %>
+          <nav class="admin-nav">
+            <span class="muted"><%= current_support_user.email %></span>
+            <%= button_to 'Sign out', admin_logout_path, method: :delete, class: 'btn btn-ghost' %>
+          </nav>
+        <% end %>
+      </div>
+    </header>
+
+    <main class="admin-main">
+      <% if flash[:notice].present? %>
+        <p class="flash flash-notice"><%= flash[:notice] %></p>
+      <% end %>
+      <% if flash[:alert].present? %>
+        <p class="flash flash-alert"><%= flash[:alert] %></p>
+      <% end %>
+
+      <%= yield %>
+    </main>
+  </body>
+</html>

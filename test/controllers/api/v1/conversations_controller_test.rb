@@ -79,12 +79,13 @@ class Api::V1::ConversationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal conversation1.id, json_response["conversations"][0]["id"]
   end
 
-  test "should get admin conversation" do
-    admin_conversation = Conversation.create!(conversation_type: 1, name: "Admin")
-    admin_conversation.user_conversations.create!(user: @user1)
+  test "should get admin conversation for current user only" do
+    support = users(:support)
+    own_thread = Conversation.find_or_create_support_for!(@user1)
+    other_user_thread = Conversation.find_or_create_support_for!(@user2)
 
-    message = Message.create!(
-      conversation: admin_conversation,
+    Message.create!(
+      conversation: own_thread,
       sender: @user1,
       body: "Admin message",
       read: true
@@ -94,10 +95,27 @@ class Api::V1::ConversationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     json_response = JSON.parse(response.body)
-    assert_equal admin_conversation.id, json_response["id"]
+    assert_equal own_thread.id, json_response["id"]
+    assert_not_equal other_user_thread.id, json_response["id"]
     assert_equal @user1.id, json_response["current_user_id"]
-    assert_equal 1, json_response["messages"].length
-    assert_equal "Admin message", json_response["messages"][0]["body"]
+    assert json_response["messages"].any? { |message| message["body"] == "Admin message" }
+    assert_includes Conversation.find(json_response["id"]).users, support
+  end
+
+  test "admin_conversation creates a support thread when missing" do
+    support = users(:support)
+    @user1.conversations.support.find_each(&:destroy)
+
+    assert_difference -> { Conversation.support.count }, 1 do
+      get "/api/v1/conversations/admin_conversation", headers: auth_headers(@token1)
+    end
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    conversation = Conversation.find(json_response["id"])
+    assert conversation.support?
+    assert_includes conversation.users, @user1
+    assert_includes conversation.users, support
   end
 
   test "should get existing conversation by conversation_id" do
@@ -166,7 +184,7 @@ class Api::V1::ConversationsControllerTest < ActionDispatch::IntegrationTest
     assert json_response["id"].present?
     assert_equal @user1.id, json_response["current_user_id"]
     assert_equal @user2.id, json_response["other_user_id"]
-    assert_equal "John Doe", json_response["conversation_name"]
+    assert_equal "Jane Smith", json_response["conversation_name"]
     assert_equal [], json_response["messages"]
   end
 

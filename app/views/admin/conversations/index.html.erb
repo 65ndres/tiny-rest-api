@@ -1,0 +1,36 @@
+<section class="page">
+  <div class="page-header">
+    <h1>Conversations</h1>
+    <p class="muted">Messages between Support and TinyRest users.</p>
+  </div>
+
+  <% if @conversations.empty? %>
+    <p class="empty">No support conversations yet.</p>
+  <% else %>
+    <ul class="conversation-list">
+      <% @conversations.each do |conversation| %>
+        <% customer = conversation.other_user(current_support_user) %>
+        <% last = conversation.last_message %>
+        <% unread = conversation.messages.where.not(sender: current_support_user).where(read: false).exists? %>
+        <li class="conversation-row <%= 'unread' if unread || !conversation.read %>">
+          <%= link_to admin_conversation_path(conversation), class: 'conversation-link' do %>
+            <div class="conversation-meta">
+              <strong>
+                <%= customer&.email || customer&.username || 'Unknown user' %>
+              </strong>
+              <% if unread || !conversation.read %>
+                <span class="badge">Unread</span>
+              <% end %>
+            </div>
+            <p class="preview">
+              <%= last ? truncate(last.body, length: 120) : 'No messages yet' %>
+            </p>
+            <time class="muted">
+              <%= last ? time_ago_in_words(last.created_at) + ' ago' : time_ago_in_words(conversation.updated_at) + ' ago' %>
+            </time>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+  <% end %>
+</section>

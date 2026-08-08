@@ -1,10 +1,14 @@
-# Create support user
-support_user = User.find_or_create_by!(email: 'support@promesas.com') do |user|
-  user.password = 'asdfasdfasdf'
-  user.username = 'Support'
-  user.first_name = 'Support'
-  user.last_name = 'Team'
-end
+# Create support user (admin inbox login)
+support_password = ENV.fetch('SUPPORT_USER_PASSWORD', 'asdfasdfasdf')
+support_user = User.find_or_initialize_by(email: User::SUPPORT_EMAIL)
+support_user.assign_attributes(
+  password: support_password,
+  password_confirmation: support_password,
+  username: User::SUPPORT_USERNAME,
+  first_name: 'Support',
+  last_name: 'Team'
+)
+support_user.save!
 
 # Create default trial plan
 Plan.default_trial_plan

@@ -1,4 +1,15 @@
 Rails.application.routes.draw do
+  namespace :admin do
+    get 'login', to: 'sessions#new'
+    post 'login', to: 'sessions#create'
+    delete 'logout', to: 'sessions#destroy'
+
+    root to: 'conversations#index'
+    resources :conversations, only: %i[index show] do
+      resources :messages, only: %i[create]
+    end
+  end
+
   namespace :api do
     namespace :v1 do
       post 'auth/login', to: 'auth#login'
@@ -12,10 +23,11 @@ Rails.application.routes.draw do
       patch 'auth/password', to: 'passwords#update'
       get 'auth/refresh-user', to: 'auth#refresh_user'
 
+      get 'conversation/new', to: 'conversations#new'
       post 'conversation/new', to: 'conversations#new'
       get 'conversations/admin_conversation', to: 'conversations#admin_conversation'
 
-      resources :conversations, only: [] do
+      resources :conversations, only: [:create] do
         resources :messages, only: [:index, :create]
       end
 
