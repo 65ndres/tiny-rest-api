@@ -17,7 +17,7 @@ class Api::V1::AuthController < ApplicationController
     if user&.deleted_at.present?
       render json: { error: 'Invalid credentials' }, status: :unauthorized
     elsif user&.valid_password?(params[:password])
-      if user.email_verified_at.blank?
+      if email_verification_required? && user.email_verified_at.blank?
         issue_verification_code!(user)
         return render json: {
           error: 'Please verify your email before logging in.'
@@ -186,8 +186,8 @@ class Api::V1::AuthController < ApplicationController
     }
   end
 
-  # Development + production: email code confirmation.
-  # Test: auto-verify and return JWT so specs stay offline.
+  # Production: email code confirmation.
+  # Development + test: auto-verify and return JWT so local/dev stays offline.
   def render_signup_success(user)
     if email_verification_required?
       issue_verification_code!(user)
@@ -204,7 +204,7 @@ class Api::V1::AuthController < ApplicationController
   end
 
   def email_verification_required?
-    !Rails.env.test?
+    Rails.env.production?
   end
 
   def generate_verification_code
