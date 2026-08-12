@@ -35,9 +35,16 @@ class User < ApplicationRecord
 
   has_many :timer_runs, dependent: :destroy
 
+  DEFAULT_DAY_START_MINUTES = 570  # 9:30 AM
+  DEFAULT_DAY_END_MINUTES = 1320   # 10:00 PM
+
   validates :username, presence: true, uniqueness: true, allow_nil: true
   validates :daily_nap_count, inclusion: { in: 1..5 }
+  validates :day_start_minutes, :day_end_minutes,
+            presence: true,
+            inclusion: { in: 0..1439 }
   validate :baby_birthdate_must_be_valid, if: -> { baby_birthdate.present? }
+  validate :day_window_must_be_ordered
 
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
@@ -158,6 +165,13 @@ class User < ApplicationRecord
     elsif baby_birthdate < 4.years.ago.to_date
       errors.add(:baby_birthdate, 'must be within the last 4 years')
     end
+  end
+
+  def day_window_must_be_ordered
+    return if day_start_minutes.blank? || day_end_minutes.blank?
+    return if day_start_minutes < day_end_minutes
+
+    errors.add(:day_end_minutes, 'must be after day start')
   end
 
   def create_free_trial_subscription

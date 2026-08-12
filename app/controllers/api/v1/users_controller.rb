@@ -96,6 +96,8 @@ class Api::V1::UsersController < ApplicationController
       :baby_name,
       :baby_birthdate,
       :daily_nap_count,
+      :day_start_minutes,
+      :day_end_minutes,
       :password,
       :password_confirmation
     )
@@ -110,7 +112,9 @@ class Api::V1::UsersController < ApplicationController
       subscription_type: user.subscription_type_for_payload,
       baby_name: user.baby_name,
       baby_birthdate: user.baby_birthdate&.iso8601,
-      daily_nap_count: user.daily_nap_count
+      daily_nap_count: user.daily_nap_count,
+      day_start_minutes: user.day_start_minutes,
+      day_end_minutes: user.day_end_minutes
     }
   end
 end

@@ -11,7 +11,8 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       username: "sleeppreduser",
       first_name: "Sleep",
       last_name: "Parent",
-      baby_birthdate: 6.months.ago.to_date,
+      # Fixed date so age is exactly 6 months on the 2026-07-08 fixtures below.
+      baby_birthdate: Date.new(2026, 1, 8),
       daily_nap_count: 3
     )
   end
@@ -87,9 +88,9 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
   end
 
   test "active night sleep returns currently_sleeping" do
-    now = Time.zone.parse("2026-07-08 21:00:00")
+    now = Time.zone.parse("2026-07-08 23:00:00")
     active_run = @user.timer_runs.create!(
-      start_time: now - 45.minutes,
+      start_time: Time.zone.parse("2026-07-08 22:15:00"),
       submitted: false,
       active: true,
       run_type: :sleeping
@@ -100,6 +101,52 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal "currently_sleeping", result[:status]
     assert_nil result[:predicted_at]
     assert_equal 45, result[:active_sleep][:elapsed_minutes]
+  end
+
+  test "night_sleep? respects user day window" do
+    run = @user.timer_runs.new(start_time: Time.zone.parse("2026-07-08 20:00:00"))
+
+    refute SleepPredictionService.night_sleep?(
+      run,
+      day_start_minutes: 570,
+      day_end_minutes: 1320
+    )
+    assert SleepPredictionService.night_sleep?(
+      run,
+      day_start_minutes: 570,
+      day_end_minutes: 1140
+    )
+  end
+
+  test "next nap before day-end stays next_nap" do
+    now = Time.zone.parse("2026-07-08 16:00:00")
+    @user.update!(day_end_minutes: 1320) # 10:00 PM
+    nap = create_submitted_sleep(
+      start_time: Time.zone.parse("2026-07-08 14:00:00"),
+      end_time: Time.zone.parse("2026-07-08 15:00:00")
+    )
+
+    result = predict_at(now, submitted_runs: [nap])
+
+    assert_equal "next_nap", result[:status]
+    expected = Time.zone.parse("2026-07-08 17:30:00") # 15:00 + 150
+    assert_equal expected.iso8601, result[:predicted_at]
+  end
+
+  test "predicted next nap on or after day-end becomes bedtime" do
+    now = Time.zone.parse("2026-07-08 18:00:00")
+    @user.update!(day_end_minutes: 1140) # 7:00 PM
+    nap = create_submitted_sleep(
+      start_time: Time.zone.parse("2026-07-08 16:00:00"),
+      end_time: Time.zone.parse("2026-07-08 17:00:00")
+    )
+
+    result = predict_at(now, submitted_runs: [nap])
+
+    assert_equal "bedtime", result[:status]
+    assert_equal 180, result[:wake_window_minutes]
+    expected = Time.zone.parse("2026-07-08 20:00:00") # 17:00 + bedtime slot 180
+    assert_equal expected.iso8601, result[:predicted_at]
   end
 
   test "predicts next nap using shortest morning wake window after overnight wake" do

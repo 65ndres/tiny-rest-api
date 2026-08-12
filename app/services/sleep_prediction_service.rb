@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 class SleepPredictionService
-  NIGHT_START_HOUR = 19
-  NIGHT_END_HOUR = 6
+  DEFAULT_DAY_START_MINUTES = User::DEFAULT_DAY_START_MINUTES
+  DEFAULT_DAY_END_MINUTES = User::DEFAULT_DAY_END_MINUTES
 
   STATUSES = %w[
     next_nap
@@ -33,23 +33,18 @@ class SleepPredictionService
     base_minutes = base_wake_window_minutes(baby_age_in_months)
 
     if naps_today >= nap_count
-      slot_index = nap_count
-      wake_minutes = wake_window_for_slot(slot_index, nap_count, base_minutes)
-      predicted_at = last_wake_time + wake_minutes.minutes
-
-      return build_result(
-        status: 'bedtime',
-        predicted_at: predicted_at,
-        wake_window_minutes: wake_minutes,
-        naps_today: naps_today,
-        daily_nap_count: nap_count
-      )
+      return bedtime_result(nap_count: nap_count, naps_today: naps_today, base_minutes: base_minutes)
     end
 
     slot_index = naps_today
     wake_minutes = wake_window_for_slot(slot_index, nap_count, base_minutes)
     anchor = last_wake_time || @now
     predicted_at = anchor + wake_minutes.minutes
+
+    # Do not schedule another nap at/after the user's day-end cutoff.
+    if on_or_after_day_end?(predicted_at)
+      return bedtime_result(nap_count: nap_count, naps_today: naps_today, base_minutes: base_minutes)
+    end
 
     build_result(
       status: 'next_nap',
@@ -67,8 +62,6 @@ class SleepPredictionService
   end
 
   def self.base_wake_window_minutes(age_months)
-    age_days = nil # only used when birthdate passed for weeks calc - handled via age_months==0
-
     case age_months
     when 0
       48
@@ -107,9 +100,14 @@ class SleepPredictionService
     (base_minutes * multipliers[index]).round
   end
 
-  def self.night_sleep?(timer_run, now = Time.current)
-    hour = timer_run.start_time.in_time_zone.hour
-    hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR
+  def self.night_sleep?(
+    timer_run,
+    day_start_minutes: DEFAULT_DAY_START_MINUTES,
+    day_end_minutes: DEFAULT_DAY_END_MINUTES
+  )
+    local = timer_run.start_time.in_time_zone
+    minutes = (local.hour * 60) + local.min
+    minutes < day_start_minutes || minutes >= day_end_minutes
   end
 
   private
@@ -131,6 +129,41 @@ class SleepPredictionService
     return 3 if value < 1 || value > 5
 
     value
+  end
+
+  def day_start_minutes
+    value = @user.day_start_minutes
+    return DEFAULT_DAY_START_MINUTES if value.nil?
+
+    value
+  end
+
+  def day_end_minutes
+    value = @user.day_end_minutes
+    return DEFAULT_DAY_END_MINUTES if value.nil?
+
+    value
+  end
+
+  def day_end_today
+    @now.beginning_of_day + day_end_minutes.minutes
+  end
+
+  def on_or_after_day_end?(time)
+    time.in_time_zone >= day_end_today
+  end
+
+  def bedtime_result(nap_count:, naps_today:, base_minutes:)
+    wake_minutes = wake_window_for_slot(nap_count, nap_count, base_minutes)
+    predicted_at = (last_wake_time || @now) + wake_minutes.minutes
+
+    build_result(
+      status: 'bedtime',
+      predicted_at: predicted_at,
+      wake_window_minutes: wake_minutes,
+      naps_today: naps_today,
+      daily_nap_count: nap_count
+    )
   end
 
   def sleeping_runs
@@ -175,7 +208,15 @@ class SleepPredictionService
   end
 
   def active_sleep_result(active_sleep)
-    status = self.class.night_sleep?(active_sleep, @now) ? 'currently_sleeping' : 'currently_napping'
+    status = if self.class.night_sleep?(
+                active_sleep,
+                day_start_minutes: day_start_minutes,
+                day_end_minutes: day_end_minutes
+              )
+               'currently_sleeping'
+             else
+               'currently_napping'
+             end
     elapsed_minutes = ((@now - active_sleep.start_time.in_time_zone) / 60).floor
 
     build_result(
