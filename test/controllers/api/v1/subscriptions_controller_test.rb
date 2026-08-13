@@ -139,6 +139,36 @@ class Api::V1::SubscriptionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal "No active subscriptions found", body["error"]
   end
 
+  test "create_pro_subscription accepts active Pro entitlement without product subscriptions" do
+    customer_info = {
+      "subscriptionsByProductIdentifier" => {},
+      "entitlements" => {
+        "active" => {
+          "Tiny Rest Pro" => {
+            "identifier" => "Tiny Rest Pro",
+            "isActive" => true,
+            "store" => "APP_STORE",
+            "expirationDate" => 1.month.from_now.iso8601
+          }
+        }
+      }
+    }
+
+    assert_difference -> { @user.subscriptions.pro.count }, 1 do
+      post "/api/v1/subscription/create_pro_subscription",
+           params: { customerInfo: customer_info },
+           headers: auth_headers(@token),
+           as: :json
+    end
+
+    assert_response :created
+    body = JSON.parse(response.body)
+    assert_equal true, body["success"]
+    assert_equal ["Tiny Rest Pro"], body["created_from"]
+    assert_equal "pro", @user.reload.active_subscription.subscription_type
+    assert @user.onboarding.reload.completed_at.present?
+  end
+
   test "show returns the active subscription" do
     @user.subscriptions.create!(
       subscription_type: :basic,
