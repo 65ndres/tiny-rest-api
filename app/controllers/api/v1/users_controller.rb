@@ -96,6 +96,7 @@ class Api::V1::UsersController < ApplicationController
       :baby_name,
       :baby_birthdate,
       :daily_nap_count,
+      :daily_nap_count_alt,
       :day_start_minutes,
       :day_end_minutes,
       :password,
@@ -113,6 +114,7 @@ class Api::V1::UsersController < ApplicationController
       baby_name: user.baby_name,
       baby_birthdate: user.baby_birthdate&.iso8601,
       daily_nap_count: user.daily_nap_count,
+      daily_nap_count_alt: user.daily_nap_count_alt,
       day_start_minutes: user.day_start_minutes,
       day_end_minutes: user.day_end_minutes
     }

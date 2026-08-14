@@ -201,4 +201,77 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal 0, result[:naps_today]
     assert_equal "next_nap", result[:status]
   end
+
+  test "predict_with_range omits range_predictions for exact nap count" do
+    result = SleepPredictionService.new(
+      @user,
+      submitted_runs: [],
+      active_run: nil,
+      now: Time.zone.parse("2026-07-08 08:00:00")
+    ).predict_with_range
+
+    assert_equal 3, result[:daily_nap_count]
+    assert_nil result[:daily_nap_count_alt]
+    assert_nil result[:range_predictions]
+  end
+
+  test "predict_with_range returns both nap count variants" do
+    @user.update!(daily_nap_count: 2, daily_nap_count_alt: 3)
+    now = Time.zone.parse("2026-07-08 16:00:00")
+    nap1 = create_submitted_sleep(
+      start_time: Time.zone.parse("2026-07-08 09:30:00"),
+      end_time: Time.zone.parse("2026-07-08 10:30:00")
+    )
+    nap2 = create_submitted_sleep(
+      start_time: Time.zone.parse("2026-07-08 12:45:00"),
+      end_time: Time.zone.parse("2026-07-08 13:30:00")
+    )
+
+    result = SleepPredictionService.new(
+      @user,
+      submitted_runs: [nap1, nap2],
+      active_run: nil,
+      now: now
+    ).predict_with_range
+
+    assert_equal 2, result[:daily_nap_count]
+    assert_equal 3, result[:daily_nap_count_alt]
+    assert_equal "bedtime", result[:status]
+    assert_equal 2, result[:range_predictions].length
+
+    two_naps = result[:range_predictions][0]
+    three_naps = result[:range_predictions][1]
+
+    assert_equal 2, two_naps[:daily_nap_count]
+    assert_equal "bedtime", two_naps[:status]
+    assert_equal 3, three_naps[:daily_nap_count]
+    assert_equal "next_nap", three_naps[:status]
+  end
+
+  test "predict_with_range keeps identical active-sleep results for both counts" do
+    @user.update!(daily_nap_count: 2, daily_nap_count_alt: 3)
+    now = Time.zone.parse("2026-07-08 14:00:00")
+    active_run = @user.timer_runs.create!(
+      start_time: now - 20.minutes,
+      submitted: false,
+      active: true,
+      run_type: :sleeping
+    )
+
+    result = SleepPredictionService.new(
+      @user,
+      submitted_runs: [],
+      active_run: active_run,
+      now: now
+    ).predict_with_range
+
+    assert_equal "currently_napping", result[:status]
+    assert_equal 2, result[:range_predictions].length
+    assert_equal ["currently_napping", "currently_napping"],
+                 result[:range_predictions].map { |prediction| prediction[:status] }
+    assert_equal [2, 3],
+                 result[:range_predictions].map { |prediction| prediction[:daily_nap_count] }
+    assert_equal [20, 20],
+                 result[:range_predictions].map { |prediction| prediction[:active_sleep][:elapsed_minutes] }
+  end
 end

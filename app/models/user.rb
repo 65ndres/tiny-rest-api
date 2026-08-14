@@ -37,14 +37,17 @@ class User < ApplicationRecord
 
   DEFAULT_DAY_START_MINUTES = 570  # 9:30 AM
   DEFAULT_DAY_END_MINUTES = 1320   # 10:00 PM
+  ALLOWED_NAP_COUNT_RANGES = [[1, 2], [2, 3], [3, 4]].freeze
 
   validates :username, presence: true, uniqueness: true, allow_nil: true
   validates :daily_nap_count, inclusion: { in: 1..5 }
+  validates :daily_nap_count_alt, inclusion: { in: 1..5 }, allow_nil: true
   validates :day_start_minutes, :day_end_minutes,
             presence: true,
             inclusion: { in: 0..1439 }
   validate :baby_birthdate_must_be_valid, if: -> { baby_birthdate.present? }
   validate :day_window_must_be_ordered
+  validate :daily_nap_count_alt_must_be_allowed_range
 
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
@@ -172,6 +175,14 @@ class User < ApplicationRecord
     return if day_start_minutes < day_end_minutes
 
     errors.add(:day_end_minutes, 'must be after day start')
+  end
+
+  def daily_nap_count_alt_must_be_allowed_range
+    return if daily_nap_count_alt.nil?
+
+    unless ALLOWED_NAP_COUNT_RANGES.include?([daily_nap_count, daily_nap_count_alt])
+      errors.add(:daily_nap_count_alt, 'must be an allowed nap range')
+    end
   end
 
   def create_free_trial_subscription

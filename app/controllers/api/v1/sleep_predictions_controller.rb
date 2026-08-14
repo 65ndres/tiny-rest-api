@@ -20,7 +20,7 @@ class Api::V1::SleepPredictionsController < ApplicationController
       current_user,
       submitted_runs: submitted_runs,
       active_run: active_run
-    ).predict
+    ).predict_with_range
 
     render json: prediction, status: :ok
   end

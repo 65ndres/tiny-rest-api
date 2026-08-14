@@ -298,6 +298,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     assert_equal "Emma", json_response["baby_name"]
     assert_equal 4, json_response["daily_nap_count"]
+    assert_nil json_response["daily_nap_count_alt"]
   end
 
   test "should update baby_name and daily_nap_count" do
@@ -318,6 +319,56 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     @user1.reload
     assert_equal "Liam", @user1.baby_name
     assert_equal 2, @user1.daily_nap_count
+  end
+
+  test "should update and clear daily_nap_count_alt" do
+    post "/api/v1/user",
+         params: {
+           user: {
+             daily_nap_count: 2,
+             daily_nap_count_alt: 3
+           }
+         },
+         headers: auth_headers(@token1)
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 2, json_response["daily_nap_count"]
+    assert_equal 3, json_response["daily_nap_count_alt"]
+
+    post "/api/v1/user",
+         params: {
+           user: {
+             daily_nap_count: 3,
+             daily_nap_count_alt: nil
+           }
+         },
+         headers: auth_headers(@token1),
+         as: :json
+
+    assert_response :success
+    json_response = JSON.parse(response.body)
+    assert_equal 3, json_response["daily_nap_count"]
+    assert_nil json_response["daily_nap_count_alt"]
+
+    @user1.reload
+    assert_equal 3, @user1.daily_nap_count
+    assert_nil @user1.daily_nap_count_alt
+  end
+
+  test "should reject invalid daily_nap_count_alt range" do
+    post "/api/v1/user",
+         params: {
+           user: {
+             daily_nap_count: 2,
+             daily_nap_count_alt: 4
+           }
+         },
+         headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    json_response = JSON.parse(response.body)
+    assert json_response["errors"].present?
   end
 
   test "should reject daily_nap_count outside 1 to 5" do
