@@ -37,10 +37,18 @@ class SleepPredictionService
       return bedtime_result(nap_count: resolved_nap_count, naps_today: naps_today, base_minutes: base_minutes)
     end
 
+    if last_wake_time.nil?
+      return schedule_from_day_window(
+        nap_count: resolved_nap_count,
+        naps_today: naps_today,
+        base_minutes: base_minutes
+      )
+    end
+
     slot_index = naps_today
     wake_minutes = wake_window_for_slot(slot_index, resolved_nap_count, base_minutes)
-    anchor = last_wake_time || @now
-    predicted_at = anchor + wake_minutes.minutes
+    predicted_at = last_wake_time + wake_minutes.minutes
+    predicted_at = day_start_today if predicted_at < day_start_today
 
     # Do not schedule another nap at/after the user's day-end cutoff.
     if on_or_after_day_end?(predicted_at)
@@ -115,6 +123,16 @@ class SleepPredictionService
     (base_minutes * multipliers[index]).round
   end
 
+  def self.scheduled_nap_offsets_minutes(daily_nap_count, day_length_minutes)
+    multipliers = slot_multipliers(daily_nap_count)
+    total = multipliers.sum.to_f
+    elapsed = 0
+    multipliers[0...-1].map do |multiplier|
+      elapsed += (day_length_minutes * multiplier / total).round
+      elapsed
+    end
+  end
+
   def self.night_sleep?(
     timer_run,
     day_start_minutes: DEFAULT_DAY_START_MINUTES,
@@ -171,17 +189,59 @@ class SleepPredictionService
     value
   end
 
+  def day_start_today
+    @now.beginning_of_day + day_start_minutes.minutes
+  end
+
   def day_end_today
     @now.beginning_of_day + day_end_minutes.minutes
+  end
+
+  def day_length_minutes
+    day_end_minutes - day_start_minutes
   end
 
   def on_or_after_day_end?(time)
     time.in_time_zone >= day_end_today
   end
 
+  def scheduled_nap_times(nap_count)
+    self.class.scheduled_nap_offsets_minutes(nap_count, day_length_minutes).map do |offset|
+      day_start_today + offset.minutes
+    end
+  end
+
+  def schedule_from_day_window(nap_count:, naps_today:, base_minutes:)
+    if @now >= day_end_today
+      return bedtime_result(nap_count: nap_count, naps_today: naps_today, base_minutes: base_minutes)
+    end
+
+    times = scheduled_nap_times(nap_count)
+    next_time = times.find { |time| time > @now }
+    if next_time.nil?
+      return bedtime_result(nap_count: nap_count, naps_today: naps_today, base_minutes: base_minutes)
+    end
+
+    previous = times.select { |time| time < next_time }.last || day_start_today
+    wake_minutes = ((next_time - previous) / 60).round
+
+    build_result(
+      status: 'next_nap',
+      predicted_at: next_time,
+      wake_window_minutes: wake_minutes,
+      naps_today: naps_today,
+      daily_nap_count: nap_count
+    )
+  end
+
   def bedtime_result(nap_count:, naps_today:, base_minutes:)
     wake_minutes = wake_window_for_slot(nap_count, nap_count, base_minutes)
-    predicted_at = (last_wake_time || @now) + wake_minutes.minutes
+    predicted_at = if last_wake_time
+                     last_wake_time + wake_minutes.minutes
+                   else
+                     day_end_today
+                   end
+    predicted_at = day_end_today if predicted_at > day_end_today
 
     build_result(
       status: 'bedtime',

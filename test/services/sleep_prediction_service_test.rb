@@ -145,7 +145,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     assert_equal "bedtime", result[:status]
     assert_equal 180, result[:wake_window_minutes]
-    expected = Time.zone.parse("2026-07-08 20:00:00") # 17:00 + bedtime slot 180
+    expected = Time.zone.parse("2026-07-08 19:00:00") # night cutoff
     assert_equal expected.iso8601, result[:predicted_at]
   end
 
@@ -161,7 +161,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal "next_nap", result[:status]
     assert_equal 0, result[:naps_today]
     assert_equal 128, result[:wake_window_minutes]
-    expected = Time.zone.parse("2026-07-08 09:08:00")
+    expected = Time.zone.parse("2026-07-08 09:30:00") # clamped to day start
     assert_equal expected.iso8601, result[:predicted_at]
   end
 
@@ -200,6 +200,48 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     assert_equal 0, result[:naps_today]
     assert_equal "next_nap", result[:status]
+  end
+
+  test "with no logged sleep schedules first nap from day start to day end" do
+    now = Time.zone.parse("2026-07-08 08:00:00")
+    @user.update!(day_start_minutes: 570, day_end_minutes: 1320) # 9:30 AM – 10:00 PM
+
+    result = predict_at(now, submitted_runs: [])
+
+    offsets = SleepPredictionService.scheduled_nap_offsets_minutes(3, 750)
+    expected = Time.zone.parse("2026-07-08 09:30:00") + offsets.first.minutes
+
+    assert_equal "next_nap", result[:status]
+    assert_equal 0, result[:naps_today]
+    assert_equal expected.iso8601, result[:predicted_at]
+    assert_equal offsets.first, result[:wake_window_minutes]
+  end
+
+  test "with no logged sleep later in the day picks the next remaining nap slot" do
+    now = Time.zone.parse("2026-07-08 16:00:00")
+    @user.update!(day_start_minutes: 570, day_end_minutes: 1320)
+
+    result = predict_at(now, submitted_runs: [])
+
+    offsets = SleepPredictionService.scheduled_nap_offsets_minutes(3, 750)
+    day_start = Time.zone.parse("2026-07-08 09:30:00")
+    next_offset = offsets.find { |offset| day_start + offset.minutes > now }
+    expected = day_start + next_offset.minutes
+    previous_offset = offsets.select { |offset| offset < next_offset }.last || 0
+
+    assert_equal "next_nap", result[:status]
+    assert_equal expected.iso8601, result[:predicted_at]
+    assert_equal next_offset - previous_offset, result[:wake_window_minutes]
+  end
+
+  test "with no logged sleep after day end predicts bedtime at night cutoff" do
+    now = Time.zone.parse("2026-07-08 22:30:00")
+    @user.update!(day_start_minutes: 570, day_end_minutes: 1320)
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "bedtime", result[:status]
+    assert_equal Time.zone.parse("2026-07-08 22:00:00").iso8601, result[:predicted_at]
   end
 
   test "predict_with_range omits range_predictions for exact nap count" do

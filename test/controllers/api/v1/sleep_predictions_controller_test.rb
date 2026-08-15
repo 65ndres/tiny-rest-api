@@ -29,17 +29,19 @@ class Api::V1::SleepPredictionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "show returns sleep prediction payload" do
-    get "/api/v1/sleep_prediction", headers: auth_headers(@token)
+    travel_to Time.zone.parse("2026-07-08 10:00:00") do
+      get "/api/v1/sleep_prediction", headers: auth_headers(@token)
 
-    assert_response :success
-    json_response = JSON.parse(response.body)
+      assert_response :success
+      json_response = JSON.parse(response.body)
 
-    assert_equal "next_nap", json_response["status"]
-    assert json_response.key?("predicted_at")
-    assert json_response.key?("wake_window_minutes")
-    assert_equal 2, json_response["daily_nap_count"]
-    assert_equal 0, json_response["naps_today"]
-    assert_nil json_response["active_sleep"]
+      assert_equal "next_nap", json_response["status"]
+      assert json_response.key?("predicted_at")
+      assert json_response.key?("wake_window_minutes")
+      assert_equal 2, json_response["daily_nap_count"]
+      assert_equal 0, json_response["naps_today"]
+      assert_nil json_response["active_sleep"]
+    end
   end
 
   test "show returns needs_birthdate when birthdate missing" do
@@ -77,14 +79,16 @@ class Api::V1::SleepPredictionsControllerTest < ActionDispatch::IntegrationTest
   test "show returns range_predictions when alt nap count is set" do
     @user.update!(daily_nap_count: 2, daily_nap_count_alt: 3)
 
-    get "/api/v1/sleep_prediction", headers: auth_headers(@token)
+    travel_to Time.zone.parse("2026-07-08 10:00:00") do
+      get "/api/v1/sleep_prediction", headers: auth_headers(@token)
 
-    assert_response :success
-    json_response = JSON.parse(response.body)
+      assert_response :success
+      json_response = JSON.parse(response.body)
 
-    assert_equal 2, json_response["daily_nap_count"]
-    assert_equal 3, json_response["daily_nap_count_alt"]
-    assert_equal 2, json_response["range_predictions"].length
-    assert_equal [2, 3], json_response["range_predictions"].map { |prediction| prediction["daily_nap_count"] }
+      assert_equal 2, json_response["daily_nap_count"]
+      assert_equal 3, json_response["daily_nap_count_alt"]
+      assert_equal 2, json_response["range_predictions"].length
+      assert_equal [2, 3], json_response["range_predictions"].map { |prediction| prediction["daily_nap_count"] }
+    end
   end
 end
