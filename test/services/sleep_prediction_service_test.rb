@@ -323,6 +323,58 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal Time.zone.parse("2026-07-08 22:00:00").iso8601, result[:predicted_at]
   end
 
+  test "within 2 hours after bedtime still shows a bedtime clock time" do
+    now = Time.zone.parse("2026-07-08 23:30:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "bedtime", result[:status]
+    assert_equal Time.zone.parse("2026-07-08 22:00:00").iso8601, result[:predicted_at]
+  end
+
+  test "2 hours after bedtime with no timer omits the next sleep time" do
+    now = Time.zone.parse("2026-07-09 00:30:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "bedtime", result[:status]
+    assert_nil result[:predicted_at]
+  end
+
+  test "late night before wake minus 2 hours with no timer omits the next sleep time" do
+    now = Time.zone.parse("2026-07-09 04:00:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "bedtime", result[:status]
+    assert_nil result[:predicted_at]
+  end
+
+  test "after wake minus 2 hours resumes next nap prediction" do
+    now = Time.zone.parse("2026-07-09 06:00:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "next_nap", result[:status]
+    assert_equal Time.zone.parse("2026-07-09 09:30:00").iso8601, result[:predicted_at]
+  end
+
+  test "active timer during overnight quiet window still returns currently_sleeping" do
+    now = Time.zone.parse("2026-07-09 02:00:00")
+    active_run = @user.timer_runs.create!(
+      start_time: Time.zone.parse("2026-07-08 22:15:00"),
+      submitted: false,
+      active: true,
+      run_type: :sleeping
+    )
+
+    result = predict_at(now, active_run: active_run)
+
+    assert_equal "currently_sleeping", result[:status]
+    assert_nil result[:predicted_at]
+    assert_equal 225, result[:active_sleep][:elapsed_minutes]
+  end
+
   test "0-nap preschooler predicts bedtime" do
     @user.update!(
       baby_birthdate: Date.new(2023, 3, 8),

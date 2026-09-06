@@ -12,6 +12,9 @@ class SleepPredictionService
     needs_birthdate
   ].freeze
 
+  # After bedtime + 2h and before wake − 2h, do not suggest a next sleep clock time.
+  OVERNIGHT_QUIET_BUFFER_MINUTES = 120
+
   AGE_SCHEDULES = [
     {
       age: 0..1,
@@ -104,6 +107,14 @@ class SleepPredictionService
     end
 
     naps_today = naps_completed_today
+
+    if in_overnight_quiet_window?
+      return bedtime_without_time_result(
+        nap_count: resolved_nap_count,
+        naps_today: naps_today,
+        schedule: schedule
+      )
+    end
 
     if resolved_nap_count.zero? || naps_today >= resolved_nap_count
       return bedtime_result(nap_count: resolved_nap_count, naps_today: naps_today, schedule: schedule)
@@ -224,6 +235,25 @@ class SleepPredictionService
     time.in_time_zone >= day_end_today
   end
 
+  def overnight_quiet_window
+    if @now >= day_end_today
+      quiet_start = day_end_today + OVERNIGHT_QUIET_BUFFER_MINUTES.minutes
+      quiet_end = (day_start_today + 1.day) - OVERNIGHT_QUIET_BUFFER_MINUTES.minutes
+    else
+      quiet_start = (day_end_today - 1.day) + OVERNIGHT_QUIET_BUFFER_MINUTES.minutes
+      quiet_end = day_start_today - OVERNIGHT_QUIET_BUFFER_MINUTES.minutes
+    end
+
+    [quiet_start, quiet_end]
+  end
+
+  def in_overnight_quiet_window?
+    quiet_start, quiet_end = overnight_quiet_window
+    return false if quiet_start >= quiet_end
+
+    @now >= quiet_start && @now < quiet_end
+  end
+
   def effective_wake
     wake = last_wake_time
     return day_start_today if wake.nil? || wake < day_start_today
@@ -284,6 +314,17 @@ class SleepPredictionService
       status: 'bedtime',
       predicted_at: predicted_at,
       wake_window_minutes: wake_minutes,
+      nap_length_minutes: schedule[:nap_length_minutes],
+      naps_today: naps_today,
+      daily_nap_count: nap_count
+    )
+  end
+
+  def bedtime_without_time_result(nap_count:, naps_today:, schedule:)
+    build_result(
+      status: 'bedtime',
+      predicted_at: nil,
+      wake_window_minutes: schedule[:wake_window_minutes],
       nap_length_minutes: schedule[:nap_length_minutes],
       naps_today: naps_today,
       daily_nap_count: nap_count
