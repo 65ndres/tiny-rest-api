@@ -371,11 +371,11 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert json_response["errors"].present?
   end
 
-  test "should reject daily_nap_count outside 1 to 5" do
+  test "should reject daily_nap_count outside 0 to 6" do
     post "/api/v1/user",
          params: {
            user: {
-             daily_nap_count: 6
+             daily_nap_count: 7
            }
          },
          headers: auth_headers(@token1)
@@ -383,6 +383,23 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
     assert json_response["errors"].present?
+  end
+
+  test "should accept daily_nap_count of 0 and 6" do
+    [0, 6].each do |count|
+      post "/api/v1/user",
+           params: {
+             user: {
+               daily_nap_count: count,
+               daily_nap_count_alt: nil
+             }
+           },
+           headers: auth_headers(@token1)
+
+      assert_response :success, "expected #{count} naps to be accepted"
+      json_response = JSON.parse(response.body)
+      assert_equal count, json_response["daily_nap_count"]
+    end
   end
 
   test "should show and update baby_birthdate" do

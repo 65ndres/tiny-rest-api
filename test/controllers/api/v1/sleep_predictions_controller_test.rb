@@ -38,6 +38,7 @@ class Api::V1::SleepPredictionsControllerTest < ActionDispatch::IntegrationTest
       assert_equal "next_nap", json_response["status"]
       assert json_response.key?("predicted_at")
       assert json_response.key?("wake_window_minutes")
+      assert json_response.key?("nap_length_minutes")
       assert_equal 2, json_response["daily_nap_count"]
       assert_equal 0, json_response["naps_today"]
       assert_nil json_response["active_sleep"]

@@ -13,7 +13,9 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       last_name: "Parent",
       # Fixed date so age is exactly 6 months on the 2026-07-08 fixtures below.
       baby_birthdate: Date.new(2026, 1, 8),
-      daily_nap_count: 3
+      daily_nap_count: 3,
+      day_start_minutes: 420, # 7:00 AM — spreadsheet wake-up
+      day_end_minutes: 1320   # 10:00 PM
     )
   end
 
@@ -44,31 +46,75 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     assert_equal "needs_birthdate", result[:status]
     assert_nil result[:predicted_at]
+    assert_nil result[:nap_length_minutes]
   end
 
-  test "base_wake_window_minutes maps age brackets" do
-    assert_equal 48, SleepPredictionService.base_wake_window_minutes(0)
-    assert_equal 75, SleepPredictionService.base_wake_window_minutes(2)
-    assert_equal 98, SleepPredictionService.base_wake_window_minutes(4)
-    assert_equal 150, SleepPredictionService.base_wake_window_minutes(6)
-    assert_equal 180, SleepPredictionService.base_wake_window_minutes(9)
-    assert_equal 210, SleepPredictionService.base_wake_window_minutes(12)
-    assert_equal 300, SleepPredictionService.base_wake_window_minutes(18)
-    assert_equal 330, SleepPredictionService.base_wake_window_minutes(30)
+  test "schedule_for maps spreadsheet age and nap-count variants" do
+    assert_equal(
+      { naps: 6, wake_window_minutes: 50, nap_length_minutes: 70 },
+      SleepPredictionService.schedule_for(0, 6)
+    )
+    assert_equal(
+      { naps: 5, wake_window_minutes: 80, nap_length_minutes: 55 },
+      SleepPredictionService.schedule_for(2, 5)
+    )
+    assert_equal(
+      { naps: 3, wake_window_minutes: 110, nap_length_minutes: 75 },
+      SleepPredictionService.schedule_for(4, 3)
+    )
+    assert_equal(
+      { naps: 4, wake_window_minutes: 90, nap_length_minutes: 50 },
+      SleepPredictionService.schedule_for(5, 4)
+    )
+    assert_equal(
+      { naps: 3, wake_window_minutes: 150, nap_length_minutes: 60 },
+      SleepPredictionService.schedule_for(6, 3)
+    )
+    assert_equal(
+      { naps: 2, wake_window_minutes: 180, nap_length_minutes: 90 },
+      SleepPredictionService.schedule_for(9, 2)
+    )
+    assert_equal(
+      { naps: 3, wake_window_minutes: 150, nap_length_minutes: 60 },
+      SleepPredictionService.schedule_for(9, 3)
+    )
+    assert_equal(
+      { naps: 2, wake_window_minutes: 210, nap_length_minutes: 90 },
+      SleepPredictionService.schedule_for(12, 2)
+    )
+    assert_equal(
+      { naps: 1, wake_window_minutes: 300, nap_length_minutes: 120 },
+      SleepPredictionService.schedule_for(16, 1)
+    )
+    assert_equal(
+      { naps: 2, wake_window_minutes: 240, nap_length_minutes: 75 },
+      SleepPredictionService.schedule_for(16, 2)
+    )
+    assert_equal(
+      { naps: 1, wake_window_minutes: 330, nap_length_minutes: 120 },
+      SleepPredictionService.schedule_for(20, 1)
+    )
+    assert_equal(
+      { naps: 1, wake_window_minutes: 330, nap_length_minutes: 90 },
+      SleepPredictionService.schedule_for(30, 1)
+    )
+    assert_equal(
+      { naps: 0, wake_window_minutes: 0, nap_length_minutes: 0 },
+      SleepPredictionService.schedule_for(40, 0)
+    )
+    assert_equal(
+      { naps: 1, wake_window_minutes: 360, nap_length_minutes: 75 },
+      SleepPredictionService.schedule_for(40, 1)
+    )
   end
 
-  test "progressive wake windows use shortest morning and longest pre-bedtime for 3 naps" do
-    base = 150
-    assert_equal 128, SleepPredictionService.wake_window_for_slot(0, 3, base)
-    assert_equal 150, SleepPredictionService.wake_window_for_slot(1, 3, base)
-    assert_equal 150, SleepPredictionService.wake_window_for_slot(2, 3, base)
-    assert_equal 180, SleepPredictionService.wake_window_for_slot(3, 3, base)
-  end
+  test "schedule_for uses the closest variant in the age group" do
+    # 6-7 months only lists 3 naps.
+    closest = SleepPredictionService.schedule_for(6, 2)
 
-  test "progressive wake windows reverse for 1 nap schedule" do
-    base = 300
-    assert_equal 360, SleepPredictionService.wake_window_for_slot(0, 1, base)
-    assert_equal 255, SleepPredictionService.wake_window_for_slot(1, 1, base)
+    assert_equal 3, closest[:naps]
+    assert_equal 150, closest[:wake_window_minutes]
+    assert_equal 60, closest[:nap_length_minutes]
   end
 
   test "active daytime sleep returns currently_napping" do
@@ -85,6 +131,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal "currently_napping", result[:status]
     assert_nil result[:predicted_at]
     assert_equal 30, result[:active_sleep][:elapsed_minutes]
+    assert_equal 60, result[:nap_length_minutes]
   end
 
   test "active night sleep returns currently_sleeping" do
@@ -118,9 +165,63 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     )
   end
 
+  test "6-7 month 3-nap schedule starts first nap at 9:30 after 7:00 wake" do
+    now = Time.zone.parse("2026-07-08 08:00:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "next_nap", result[:status]
+    assert_equal 0, result[:naps_today]
+    assert_equal 150, result[:wake_window_minutes]
+    assert_equal 60, result[:nap_length_minutes]
+    assert_equal Time.zone.parse("2026-07-08 09:30:00").iso8601, result[:predicted_at]
+  end
+
+  test "6-7 month next nap is last wake plus constant wake window" do
+    now = Time.zone.parse("2026-07-08 11:00:00")
+    nap = create_submitted_sleep(
+      start_time: Time.zone.parse("2026-07-08 09:30:00"),
+      end_time: Time.zone.parse("2026-07-08 10:30:00")
+    )
+
+    result = predict_at(now, submitted_runs: [nap])
+
+    assert_equal "next_nap", result[:status]
+    assert_equal 150, result[:wake_window_minutes]
+    assert_equal 60, result[:nap_length_minutes]
+    assert_equal Time.zone.parse("2026-07-08 13:00:00").iso8601, result[:predicted_at]
+  end
+
+  test "8-10 months uses 180 vs 150 wake windows for 2 vs 3 naps" do
+    @user.update!(baby_birthdate: Date.new(2025, 10, 8), daily_nap_count: 2)
+    now = Time.zone.parse("2026-07-08 08:00:00")
+
+    two_naps = predict_at(now, submitted_runs: [])
+    assert_equal 180, two_naps[:wake_window_minutes]
+    assert_equal 90, two_naps[:nap_length_minutes]
+    assert_equal Time.zone.parse("2026-07-08 10:00:00").iso8601, two_naps[:predicted_at]
+
+    @user.update!(daily_nap_count: 3)
+    three_naps = predict_at(now, submitted_runs: [])
+    assert_equal 150, three_naps[:wake_window_minutes]
+    assert_equal 60, three_naps[:nap_length_minutes]
+    assert_equal Time.zone.parse("2026-07-08 09:30:00").iso8601, three_naps[:predicted_at]
+  end
+
+  test "14-18 month 1-nap schedule starts at noon after 7:00 wake" do
+    @user.update!(baby_birthdate: Date.new(2025, 3, 8), daily_nap_count: 1)
+    now = Time.zone.parse("2026-07-08 08:00:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "next_nap", result[:status]
+    assert_equal 300, result[:wake_window_minutes]
+    assert_equal 120, result[:nap_length_minutes]
+    assert_equal Time.zone.parse("2026-07-08 12:00:00").iso8601, result[:predicted_at]
+  end
+
   test "next nap before day-end stays next_nap" do
     now = Time.zone.parse("2026-07-08 16:00:00")
-    @user.update!(day_end_minutes: 1320) # 10:00 PM
     nap = create_submitted_sleep(
       start_time: Time.zone.parse("2026-07-08 14:00:00"),
       end_time: Time.zone.parse("2026-07-08 15:00:00")
@@ -144,12 +245,13 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     result = predict_at(now, submitted_runs: [nap])
 
     assert_equal "bedtime", result[:status]
-    assert_equal 180, result[:wake_window_minutes]
+    assert_equal 150, result[:wake_window_minutes]
     expected = Time.zone.parse("2026-07-08 19:00:00") # night cutoff
     assert_equal expected.iso8601, result[:predicted_at]
   end
 
-  test "predicts next nap using shortest morning wake window after overnight wake" do
+  test "overnight wake before day start uses day start plus wake window" do
+    @user.update!(day_start_minutes: 570) # 9:30 AM
     now = Time.zone.parse("2026-07-08 08:00:00")
     overnight = create_submitted_sleep(
       start_time: Time.zone.parse("2026-07-07 20:00:00"),
@@ -160,8 +262,8 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     assert_equal "next_nap", result[:status]
     assert_equal 0, result[:naps_today]
-    assert_equal 128, result[:wake_window_minutes]
-    expected = Time.zone.parse("2026-07-08 09:30:00") # clamped to day start
+    assert_equal 150, result[:wake_window_minutes]
+    expected = Time.zone.parse("2026-07-08 12:00:00") # 9:30 + 150
     assert_equal expected.iso8601, result[:predicted_at]
   end
 
@@ -172,20 +274,20 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 10:30:00")
     )
     nap2 = create_submitted_sleep(
-      start_time: Time.zone.parse("2026-07-08 12:45:00"),
-      end_time: Time.zone.parse("2026-07-08 13:30:00")
+      start_time: Time.zone.parse("2026-07-08 13:00:00"),
+      end_time: Time.zone.parse("2026-07-08 14:00:00")
     )
     nap3 = create_submitted_sleep(
-      start_time: Time.zone.parse("2026-07-08 15:00:00"),
-      end_time: Time.zone.parse("2026-07-08 15:45:00")
+      start_time: Time.zone.parse("2026-07-08 16:30:00"),
+      end_time: Time.zone.parse("2026-07-08 17:30:00")
     )
 
     result = predict_at(now, submitted_runs: [nap1, nap2, nap3])
 
     assert_equal "bedtime", result[:status]
     assert_equal 3, result[:naps_today]
-    assert_equal 180, result[:wake_window_minutes]
-    expected = Time.zone.parse("2026-07-08 18:45:00")
+    assert_equal 150, result[:wake_window_minutes]
+    expected = Time.zone.parse("2026-07-08 20:00:00") # 17:30 + 150
     assert_equal expected.iso8601, result[:predicted_at]
   end
 
@@ -202,45 +304,37 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal "next_nap", result[:status]
   end
 
-  test "with no logged sleep schedules first nap from day start to day end" do
-    now = Time.zone.parse("2026-07-08 08:00:00")
-    @user.update!(day_start_minutes: 570, day_end_minutes: 1320) # 9:30 AM – 10:00 PM
-
-    result = predict_at(now, submitted_runs: [])
-
-    offsets = SleepPredictionService.scheduled_nap_offsets_minutes(3, 750)
-    expected = Time.zone.parse("2026-07-08 09:30:00") + offsets.first.minutes
-
-    assert_equal "next_nap", result[:status]
-    assert_equal 0, result[:naps_today]
-    assert_equal expected.iso8601, result[:predicted_at]
-    assert_equal offsets.first, result[:wake_window_minutes]
-  end
-
   test "with no logged sleep later in the day picks the next remaining nap slot" do
     now = Time.zone.parse("2026-07-08 16:00:00")
-    @user.update!(day_start_minutes: 570, day_end_minutes: 1320)
 
     result = predict_at(now, submitted_runs: [])
 
-    offsets = SleepPredictionService.scheduled_nap_offsets_minutes(3, 750)
-    day_start = Time.zone.parse("2026-07-08 09:30:00")
-    next_offset = offsets.find { |offset| day_start + offset.minutes > now }
-    expected = day_start + next_offset.minutes
-    previous_offset = offsets.select { |offset| offset < next_offset }.last || 0
-
     assert_equal "next_nap", result[:status]
-    assert_equal expected.iso8601, result[:predicted_at]
-    assert_equal next_offset - previous_offset, result[:wake_window_minutes]
+    assert_equal 150, result[:wake_window_minutes]
+    assert_equal Time.zone.parse("2026-07-08 16:30:00").iso8601, result[:predicted_at]
   end
 
   test "with no logged sleep after day end predicts bedtime at night cutoff" do
     now = Time.zone.parse("2026-07-08 22:30:00")
-    @user.update!(day_start_minutes: 570, day_end_minutes: 1320)
 
     result = predict_at(now, submitted_runs: [])
 
     assert_equal "bedtime", result[:status]
+    assert_equal Time.zone.parse("2026-07-08 22:00:00").iso8601, result[:predicted_at]
+  end
+
+  test "0-nap preschooler predicts bedtime" do
+    @user.update!(
+      baby_birthdate: Date.new(2023, 3, 8),
+      daily_nap_count: 0
+    )
+    now = Time.zone.parse("2026-07-08 10:00:00")
+
+    result = predict_at(now, submitted_runs: [])
+
+    assert_equal "bedtime", result[:status]
+    assert_equal 0, result[:daily_nap_count]
+    assert_equal 0, result[:nap_length_minutes]
     assert_equal Time.zone.parse("2026-07-08 22:00:00").iso8601, result[:predicted_at]
   end
 
