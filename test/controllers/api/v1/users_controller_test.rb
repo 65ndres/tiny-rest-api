@@ -42,6 +42,24 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user1.last_name, json_response["last_name"]
     assert_equal @user1.email, json_response["email"]
     assert_equal @user1.username, json_response["username"]
+    assert_equal "UTC", json_response["time_zone"]
+  end
+
+  test "syncs a valid device time zone header" do
+    get "/api/v1/user",
+        headers: auth_headers(@token1).merge("X-Time-Zone" => "America/New_York")
+
+    assert_response :success
+    assert_equal "America/New_York", @user1.reload.time_zone
+    assert_equal "America/New_York", JSON.parse(response.body)["time_zone"]
+  end
+
+  test "ignores an invalid device time zone header" do
+    get "/api/v1/user",
+        headers: auth_headers(@token1).merge("X-Time-Zone" => "Not/A_Zone")
+
+    assert_response :success
+    assert_equal "UTC", @user1.reload.time_zone
   end
 
   test "should not show user profile without authentication" do

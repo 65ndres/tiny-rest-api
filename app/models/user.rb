@@ -45,9 +45,11 @@ class User < ApplicationRecord
   validates :day_start_minutes, :day_end_minutes,
             presence: true,
             inclusion: { in: 0..1439 }
+  validates :time_zone, presence: true
   validate :baby_birthdate_must_be_valid, if: -> { baby_birthdate.present? }
   validate :day_window_must_be_ordered
   validate :daily_nap_count_alt_must_be_allowed_range
+  validate :time_zone_must_be_valid
 
   # Search users by username
   scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
@@ -183,6 +185,14 @@ class User < ApplicationRecord
     unless ALLOWED_NAP_COUNT_RANGES.include?([daily_nap_count, daily_nap_count_alt])
       errors.add(:daily_nap_count_alt, 'must be an allowed nap range')
     end
+  end
+
+  def time_zone_must_be_valid
+    return if time_zone.blank?
+
+    TZInfo::Timezone.get(time_zone)
+  rescue TZInfo::InvalidTimezoneIdentifier
+    errors.add(:time_zone, 'is not valid')
   end
 
   def create_free_trial_subscription

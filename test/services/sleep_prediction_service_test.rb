@@ -304,6 +304,24 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
     assert_equal "next_nap", result[:status]
   end
 
+  test "uses the user's time zone for today and day-end calculations" do
+    @user.update!(time_zone: "America/New_York")
+    nap = create_submitted_sleep(
+      start_time: Time.iso8601("2026-07-08T23:00:00Z"),
+      end_time: Time.iso8601("2026-07-09T00:00:00Z")
+    )
+
+    result = predict_at(
+      Time.iso8601("2026-07-09T01:30:00Z"),
+      submitted_runs: [nap]
+    )
+
+    assert_equal 1, result[:naps_today]
+    assert_equal "bedtime", result[:status]
+    expected = Time.find_zone!("America/New_York").parse("2026-07-08 22:00:00")
+    assert_equal expected.iso8601, result[:predicted_at]
+  end
+
   test "with no logged sleep later in the day picks the next remaining nap slot" do
     now = Time.zone.parse("2026-07-08 16:00:00")
 

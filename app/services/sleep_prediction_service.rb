@@ -90,7 +90,8 @@ class SleepPredictionService
     @user = user
     @submitted_runs = submitted_runs
     @active_run_param = active_run
-    @now = now.in_time_zone
+    @time_zone = Time.find_zone(@user.time_zone) || Time.zone
+    @now = now.in_time_zone(@time_zone)
     @today = @now.to_date
   end
 
@@ -178,9 +179,10 @@ class SleepPredictionService
   def self.night_sleep?(
     timer_run,
     day_start_minutes: DEFAULT_DAY_START_MINUTES,
-    day_end_minutes: DEFAULT_DAY_END_MINUTES
+    day_end_minutes: DEFAULT_DAY_END_MINUTES,
+    time_zone: Time.zone
   )
-    local = timer_run.start_time.in_time_zone
+    local = timer_run.start_time.in_time_zone(time_zone)
     minutes = (local.hour * 60) + local.min
     minutes < day_start_minutes || minutes >= day_end_minutes
   end
@@ -355,8 +357,8 @@ class SleepPredictionService
     sleeping_runs.count do |run|
       next false unless run.start_time && run.end_time
 
-      start_date = run.start_time.in_time_zone.to_date
-      end_date = run.end_time.in_time_zone.to_date
+      end_date = run.end_time.in_time_zone(@time_zone).to_date
+      start_date = run.start_time.in_time_zone(@time_zone).to_date
       end_date == @today && start_date == @today
     end
   end
@@ -367,22 +369,25 @@ class SleepPredictionService
       .sort_by { |run| run.end_time }
       .reverse
 
-    ending_today = candidates.find { |run| run.end_time.in_time_zone.to_date == @today }
+    ending_today = candidates.find do |run|
+      run.end_time.in_time_zone(@time_zone).to_date == @today
+    end
     wake = ending_today&.end_time || candidates.first&.end_time
-    wake&.in_time_zone
+    wake&.in_time_zone(@time_zone)
   end
 
   def active_sleep_result(active_sleep, nap_count:, schedule:)
     status = if self.class.night_sleep?(
                 active_sleep,
                 day_start_minutes: day_start_minutes,
-                day_end_minutes: day_end_minutes
+                day_end_minutes: day_end_minutes,
+                time_zone: @time_zone
               )
                'currently_sleeping'
              else
                'currently_napping'
              end
-    elapsed_minutes = ((@now - active_sleep.start_time.in_time_zone) / 60).floor
+    elapsed_minutes = ((@now - active_sleep.start_time.in_time_zone(@time_zone)) / 60).floor
 
     build_result(
       status: status,

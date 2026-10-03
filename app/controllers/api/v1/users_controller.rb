@@ -99,6 +99,7 @@ class Api::V1::UsersController < ApplicationController
       :daily_nap_count_alt,
       :day_start_minutes,
       :day_end_minutes,
+      :time_zone,
       :password,
       :password_confirmation
     )
@@ -116,7 +117,8 @@ class Api::V1::UsersController < ApplicationController
       daily_nap_count: user.daily_nap_count,
       daily_nap_count_alt: user.daily_nap_count_alt,
       day_start_minutes: user.day_start_minutes,
-      day_end_minutes: user.day_end_minutes
+      day_end_minutes: user.day_end_minutes,
+      time_zone: user.time_zone
     }
   end
 end

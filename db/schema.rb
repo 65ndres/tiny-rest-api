@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_08_14_043000) do
+ActiveRecord::Schema[7.2].define(version: 2026_10_03_214500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -147,6 +147,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_14_043000) do
     t.integer "day_start_minutes", default: 570, null: false
     t.integer "day_end_minutes", default: 1320, null: false
     t.integer "daily_nap_count_alt"
+    t.string "time_zone", default: "UTC", null: false
     t.index ["deleted_at"], name: "index_users_on_deleted_at"
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["jti"], name: "index_users_on_jti"
