@@ -5,6 +5,7 @@ Rails.application.routes.draw do
     delete 'logout', to: 'sessions#destroy'
 
     root to: 'conversations#index'
+    resources :accounts, only: %i[new create]
     resources :conversations, only: %i[index show] do
       resources :messages, only: %i[create]
     end

@@ -1,0 +1,38 @@
+<section class="page">
+  <div class="page-header">
+    <h1>Create account</h1>
+    <p class="muted">
+      Builds a verified login with onboarding finished and the Pro plan active.
+      Nap count is the daily schedule. Naps already taken are completed naps logged for today.
+    </p>
+  </div>
+
+  <%= form_with url: admin_accounts_path, method: :post, local: true, class: "stack" do %>
+    <label>
+      Number of naps
+      <input
+        type="number"
+        name="daily_nap_count"
+        min="0"
+        max="6"
+        step="1"
+        required
+        value="<%= params[:daily_nap_count].presence || 3 %>"
+      >
+    </label>
+    <label>
+      Number of naps already taken
+      <input
+        type="number"
+        name="naps_taken"
+        min="0"
+        max="12"
+        step="1"
+        required
+        value="<%= params[:naps_taken].presence || 0 %>"
+      >
+    </label>
+    <p class="muted">Password will be <code>password123</code>.</p>
+    <button type="submit" class="btn btn-primary">Create account</button>
+  <% end %>
+</section>

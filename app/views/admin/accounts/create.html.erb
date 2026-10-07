@@ -1,0 +1,35 @@
+<section class="page">
+  <div class="page-header">
+    <h1>Account ready</h1>
+    <p class="muted">
+      Log in with these credentials. Onboarding is complete and the Pro plan is active.
+    </p>
+  </div>
+
+  <dl class="credentials">
+    <div>
+      <dt>Email</dt>
+      <dd><code><%= @account.email %></code></dd>
+    </div>
+    <div>
+      <dt>Password</dt>
+      <dd><code><%= @account.password %></code></dd>
+    </div>
+    <div>
+      <dt>Number of naps</dt>
+      <dd><%= @account.daily_nap_count %></dd>
+    </div>
+    <div>
+      <dt>Naps already taken today</dt>
+      <dd><%= @account.naps_taken %></dd>
+    </div>
+    <div>
+      <dt>Plan</dt>
+      <dd>Pro</dd>
+    </div>
+  </dl>
+
+  <p class="form-actions">
+    <%= link_to "Create another account", new_admin_account_path, class: "btn btn-primary" %>
+  </p>
+</section>

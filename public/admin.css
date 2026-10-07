@@ -117,6 +117,8 @@ label {
 
 input[type="email"],
 input[type="password"],
+input[type="number"],
+input[type="text"],
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -237,4 +239,39 @@ textarea {
   margin-top: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
+}
+
+.credentials {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 0;
+}
+
+.credentials div {
+  display: grid;
+  gap: 4px;
+}
+
+.credentials dt {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.credentials dd {
+  margin: 0;
+}
+
+.credentials code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--support);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.form-actions {
+  margin-top: 22px;
+}
+
+.form-actions .btn {
+  display: inline-block;
 }
