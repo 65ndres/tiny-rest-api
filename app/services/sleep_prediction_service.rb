@@ -3,6 +3,7 @@
 class SleepPredictionService
   DEFAULT_DAY_START_MINUTES = User::DEFAULT_DAY_START_MINUTES
   DEFAULT_DAY_END_MINUTES = User::DEFAULT_DAY_END_MINUTES
+  FULL_DAY_WAKE_WINDOW = :full_day
 
   STATUSES = %w[
     next_nap
@@ -65,7 +66,9 @@ class SleepPredictionService
       ]
     },
     {
-      age: 19..24,
+      # The source ranges overlap at 24 months. Treat the exact boundary as
+      # the start of the older 2-3 year group.
+      age: 19..23,
       variants: [
         { naps: 1, wake_window_minutes: 330, nap_length_minutes: 120 }
       ]
@@ -80,7 +83,7 @@ class SleepPredictionService
     {
       age: 36..60,
       variants: [
-        { naps: 0, wake_window_minutes: 0, nap_length_minutes: 0 },
+        { naps: 0, wake_window_minutes: FULL_DAY_WAKE_WINDOW, nap_length_minutes: 0 },
         { naps: 1, wake_window_minutes: 360, nap_length_minutes: 75 }
       ]
     }
@@ -100,7 +103,7 @@ class SleepPredictionService
 
     return needs_birthdate_result(nap_count: resolved_nap_count) unless @user.baby_birthdate.present?
 
-    schedule = self.class.schedule_for(baby_age_in_months, resolved_nap_count)
+    schedule = schedule_for_user_day(baby_age_in_months, resolved_nap_count)
 
     active_sleep = active_sleeping_run
     if active_sleep
@@ -233,6 +236,13 @@ class SleepPredictionService
     @now.beginning_of_day + day_end_minutes.minutes
   end
 
+  def schedule_for_user_day(age_months, nap_count)
+    schedule = self.class.schedule_for(age_months, nap_count)
+    return schedule unless schedule[:wake_window_minutes] == FULL_DAY_WAKE_WINDOW
+
+    schedule.merge(wake_window_minutes: day_end_minutes - day_start_minutes)
+  end
+
   def on_or_after_day_end?(time)
     time.in_time_zone >= day_end_today
   end
@@ -258,7 +268,9 @@ class SleepPredictionService
 
   def effective_wake
     wake = last_wake_time
-    return day_start_today if wake.nil? || wake < day_start_today
+    # A morning wake before the day window is still the end of night sleep.
+    # Only fall back to day start when no sleep has ended today.
+    return day_start_today if wake.nil? || wake.to_date < @today
 
     wake
   end
