@@ -76,8 +76,7 @@ class SleepPredictionService
     {
       age: 24..35,
       variants: [
-        { naps: 1, wake_window_minutes: 330, nap_length_minutes: 90 },
-        { naps: 2, wake_window_minutes: 270, nap_length_minutes: 60 }
+        { naps: 1, wake_window_minutes: 330, nap_length_minutes: 90 }
       ]
     },
     {

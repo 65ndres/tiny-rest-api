@@ -66,7 +66,6 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       [ 14, 2, 240, 75 ],
       [ 19, 1, 330, 120 ],
       [ 24, 1, 330, 90 ],
-      [ 24, 2, 270, 60 ],
       [ 36, 0, SleepPredictionService::FULL_DAY_WAKE_WINDOW, 0 ],
       [ 36, 1, 360, 75 ]
     ]
@@ -83,7 +82,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
   test "schedule_for assigns overlapping boundary months to the older age group" do
     assert_equal 120, SleepPredictionService.schedule_for(23, 1)[:nap_length_minutes]
     assert_equal 90, SleepPredictionService.schedule_for(24, 1)[:nap_length_minutes]
-    assert_equal 60, SleepPredictionService.schedule_for(35, 2)[:nap_length_minutes]
+    assert_equal 90, SleepPredictionService.schedule_for(35, 2)[:nap_length_minutes]
     assert_equal 75, SleepPredictionService.schedule_for(36, 1)[:nap_length_minutes]
   end
 
