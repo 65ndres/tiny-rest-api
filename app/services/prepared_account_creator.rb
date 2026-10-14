@@ -10,6 +10,7 @@ class PreparedAccountCreator
   BABY_NAME = "Sam"
   MAX_DAILY_NAPS = 6
   MAX_NAPS_TAKEN = 12
+  MAX_BABY_AGE_MONTHS = 60
   PREFERRED_NAP_LENGTH = 45.minutes
   PREFERRED_GAP = 30.minutes
 
@@ -30,6 +31,7 @@ class PreparedAccountCreator
     :password,
     :daily_nap_count,
     :naps_taken,
+    :baby_age_months,
     keyword_init: true
   )
 
@@ -37,9 +39,12 @@ class PreparedAccountCreator
     new(...).call
   end
 
-  def initialize(daily_nap_count:, naps_taken:, email: nil, password: PASSWORD, time_zone: TIME_ZONE)
+  # baby_age_months is optional; when blank the age comes from
+  # BIRTHDATE_MONTHS_AGO for the nap count.
+  def initialize(daily_nap_count:, naps_taken:, baby_age_months: nil, email: nil, password: PASSWORD, time_zone: TIME_ZONE)
     @daily_nap_count = integer_param(daily_nap_count, "Number of naps")
     @naps_taken = integer_param(naps_taken, "Number of naps already taken")
+    @baby_age_months = baby_age_months.blank? ? nil : integer_param(baby_age_months, "Baby age in months")
     @email = email.presence || generated_email
     @password = password
     @time_zone = time_zone
@@ -72,7 +77,8 @@ class PreparedAccountCreator
       email: user.email,
       password: @password,
       daily_nap_count: @daily_nap_count,
-      naps_taken: @naps_taken
+      naps_taken: @naps_taken,
+      baby_age_months: baby_age_months
     )
   rescue ActiveRecord::RecordInvalid => e
     raise Error, e.record.errors.full_messages.to_sentence
@@ -87,6 +93,10 @@ class PreparedAccountCreator
 
     unless @naps_taken.between?(0, MAX_NAPS_TAKEN)
       raise Error, "Number of naps already taken must be between 0 and #{MAX_NAPS_TAKEN}"
+    end
+
+    if @baby_age_months && !@baby_age_months.between?(0, MAX_BABY_AGE_MONTHS)
+      raise Error, "Baby age in months must be between 0 and #{MAX_BABY_AGE_MONTHS}"
     end
 
     TZInfo::Timezone.get(@time_zone)
@@ -120,8 +130,12 @@ class PreparedAccountCreator
     }
   end
 
+  def baby_age_months
+    @baby_age_months || BIRTHDATE_MONTHS_AGO.fetch(@daily_nap_count)
+  end
+
   def baby_birthdate
-    Date.current - BIRTHDATE_MONTHS_AGO.fetch(@daily_nap_count).months
+    Date.current - baby_age_months.months
   end
 
   def create_taken_naps!(user)
