@@ -56,6 +56,34 @@ class PreparedAccountCreatorTest < ActiveSupport::TestCase
     end
   end
 
+  test "uses the given baby age instead of the nap count default" do
+    travel_to @zone.parse("2026-10-06 15:00:00") do
+      [ 20, 16 ].each do |age|
+        result = PreparedAccountCreator.call(daily_nap_count: 1, naps_taken: 0, baby_age_months: age)
+
+        assert_equal age, result.baby_age_months
+        assert_equal age, SleepPredictionService.baby_age_in_months(result.user.baby_birthdate)
+        assert_equal 1, result.user.daily_nap_count
+      end
+    end
+  end
+
+  test "defaults the baby age from the nap count" do
+    result = PreparedAccountCreator.call(daily_nap_count: 1, naps_taken: 0, baby_age_months: "")
+
+    assert_equal 19, result.baby_age_months
+    assert_equal 19, SleepPredictionService.baby_age_in_months(result.user.baby_birthdate)
+  end
+
+  test "rejects a baby age outside the allowed range" do
+    assert_no_difference -> { User.count } do
+      error = assert_raises(PreparedAccountCreator::Error) do
+        PreparedAccountCreator.call(daily_nap_count: 1, naps_taken: 0, baby_age_months: 61)
+      end
+      assert_match(/between 0 and 60/, error.message)
+    end
+  end
+
   test "rejects nap counts outside the allowed range" do
     assert_no_difference -> { User.count } do
       error = assert_raises(PreparedAccountCreator::Error) do
