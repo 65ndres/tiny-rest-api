@@ -51,24 +51,24 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
   test "schedule_for maps spreadsheet age and nap-count variants" do
     expected_variants = [
-      [0, 4, 50, 70],
-      [0, 5, 50, 70],
-      [0, 6, 50, 70],
-      [2, 4, 80, 55],
-      [2, 5, 80, 55],
-      [4, 3, 110, 75],
-      [4, 4, 90, 50],
-      [6, 3, 150, 60],
-      [8, 2, 180, 90],
-      [8, 3, 150, 60],
-      [11, 2, 210, 90],
-      [14, 1, 300, 120],
-      [14, 2, 240, 75],
-      [19, 1, 330, 120],
-      [24, 1, 330, 90],
-      [24, 2, 270, 60],
-      [36, 0, SleepPredictionService::FULL_DAY_WAKE_WINDOW, 0],
-      [36, 1, 360, 75]
+      [ 0, 4, 50, 70 ],
+      [ 0, 5, 50, 70 ],
+      [ 0, 6, 50, 70 ],
+      [ 2, 4, 80, 55 ],
+      [ 2, 5, 80, 55 ],
+      [ 4, 3, 110, 75 ],
+      [ 4, 4, 90, 50 ],
+      [ 6, 3, 150, 60 ],
+      [ 8, 2, 180, 90 ],
+      [ 8, 3, 150, 60 ],
+      [ 11, 2, 210, 90 ],
+      [ 14, 1, 300, 120 ],
+      [ 14, 2, 240, 75 ],
+      [ 19, 1, 330, 120 ],
+      [ 24, 1, 330, 90 ],
+      [ 24, 2, 270, 60 ],
+      [ 36, 0, SleepPredictionService::FULL_DAY_WAKE_WINDOW, 0 ],
+      [ 36, 1, 360, 75 ]
     ]
 
     expected_variants.each do |age, naps, wake_window, nap_length|
@@ -163,7 +163,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 10:30:00")
     )
 
-    result = predict_at(now, submitted_runs: [nap])
+    result = predict_at(now, submitted_runs: [ nap ])
 
     assert_equal "next_nap", result[:status]
     assert_equal 150, result[:wake_window_minutes]
@@ -206,7 +206,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 15:00:00")
     )
 
-    result = predict_at(now, submitted_runs: [nap])
+    result = predict_at(now, submitted_runs: [ nap ])
 
     assert_equal "next_nap", result[:status]
     expected = Time.zone.parse("2026-07-08 17:30:00") # 15:00 + 150
@@ -221,7 +221,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 17:00:00")
     )
 
-    result = predict_at(now, submitted_runs: [nap])
+    result = predict_at(now, submitted_runs: [ nap ])
 
     assert_equal "bedtime", result[:status]
     assert_equal 150, result[:wake_window_minutes]
@@ -237,7 +237,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 07:00:00")
     )
 
-    result = predict_at(now, submitted_runs: [overnight])
+    result = predict_at(now, submitted_runs: [ overnight ])
 
     assert_equal "next_nap", result[:status]
     assert_equal 0, result[:naps_today]
@@ -254,7 +254,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-07 07:00:00")
     )
 
-    result = predict_at(now, submitted_runs: [previous_day])
+    result = predict_at(now, submitted_runs: [ previous_day ])
 
     assert_equal "next_nap", result[:status]
     expected = Time.zone.parse("2026-07-08 11:30:00") # 9:00 + 150
@@ -276,7 +276,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 17:30:00")
     )
 
-    result = predict_at(now, submitted_runs: [nap1, nap2, nap3])
+    result = predict_at(now, submitted_runs: [ nap1, nap2, nap3 ])
 
     assert_equal "bedtime", result[:status]
     assert_equal 3, result[:naps_today]
@@ -292,7 +292,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
       end_time: Time.zone.parse("2026-07-08 07:00:00")
     )
 
-    result = predict_at(now, submitted_runs: [overnight])
+    result = predict_at(now, submitted_runs: [ overnight ])
 
     assert_equal 0, result[:naps_today]
     assert_equal "next_nap", result[:status]
@@ -307,7 +307,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     result = predict_at(
       Time.iso8601("2026-07-09T01:30:00Z"),
-      submitted_runs: [nap]
+      submitted_runs: [ nap ]
     )
 
     assert_equal 1, result[:naps_today]
@@ -455,7 +455,7 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     result = SleepPredictionService.new(
       @user,
-      submitted_runs: [nap1, nap2],
+      submitted_runs: [ nap1, nap2 ],
       active_run: nil,
       now: now
     ).predict_with_range
@@ -493,11 +493,11 @@ class SleepPredictionServiceTest < ActiveSupport::TestCase
 
     assert_equal "currently_napping", result[:status]
     assert_equal 2, result[:range_predictions].length
-    assert_equal ["currently_napping", "currently_napping"],
+    assert_equal [ "currently_napping", "currently_napping" ],
                  result[:range_predictions].map { |prediction| prediction[:status] }
-    assert_equal [2, 3],
+    assert_equal [ 2, 3 ],
                  result[:range_predictions].map { |prediction| prediction[:daily_nap_count] }
-    assert_equal [20, 20],
+    assert_equal [ 20, 20 ],
                  result[:range_predictions].map { |prediction| prediction[:active_sleep][:elapsed_minutes] }
   end
 end

@@ -1,15 +1,15 @@
 class Api::V1::MessagesController < ApplicationController
   def index
     conversation = find_conversation(params[:conversation_id])
-    
+
     unless conversation
-      return render json: { error: 'Conversation not found' }, status: :not_found
+      return render json: { error: "Conversation not found" }, status: :not_found
     end
 
     messages = conversation.messages.includes(:sender).order(created_at: :asc)
-    
+
     conversation.messages.where.not(sender: current_user).where(read: false).update_all(read: true)
-    
+
     render json: {
       messages: messages.map do |message|
         {
@@ -30,13 +30,13 @@ class Api::V1::MessagesController < ApplicationController
 
   def create
     conversation = find_conversation(params[:conversation_id])
-    
+
     unless conversation
-      return render json: { error: 'Conversation not found' }, status: :not_found
+      return render json: { error: "Conversation not found" }, status: :not_found
     end
 
     unless params[:body].present?
-      return render json: { error: 'Message body is required' }, status: :unprocessable_entity
+      return render json: { error: "Message body is required" }, status: :unprocessable_entity
     end
 
     message = conversation.messages.build(
@@ -56,7 +56,7 @@ class Api::V1::MessagesController < ApplicationController
         body: message.body,
         read: message.read,
         created_at: message.created_at,
-        message: 'Message sent successfully'
+        message: "Message sent successfully"
       }, status: :created
     else
       render json: { errors: message.errors.full_messages }, status: :unprocessable_entity
@@ -68,8 +68,7 @@ class Api::V1::MessagesController < ApplicationController
   def find_conversation(id)
     conversation = Conversation.find_by(id: id)
     return nil unless conversation
-    
+
     conversation
   end
 end
-

@@ -335,7 +335,7 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     ids = json_response["timer_runs"].map { |run| run["id"] }
 
-    assert_equal [spanning_midnight.id, in_range.id], ids
+    assert_equal [ spanning_midnight.id, in_range.id ], ids
   end
 
   test "index without range params returns all submitted runs newest first" do
@@ -358,7 +358,7 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     ids = json_response["timer_runs"].map { |run| run["id"] }
 
-    assert_equal [newer.id, older.id], ids
+    assert_equal [ newer.id, older.id ], ids
   end
 
   test "index returns only current user submitted runs" do
@@ -385,7 +385,7 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     json_response = JSON.parse(response.body)
     ids = json_response["timer_runs"].map { |run| run["id"] }
 
-    assert_equal [submitted_run.id], ids
+    assert_equal [ submitted_run.id ], ids
   end
 
   test "cannot update another users timer run" do
@@ -549,7 +549,7 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     ids = JSON.parse(response.body)["timer_runs"].map { |run| run["id"] }
 
-    assert_equal [nap.id], ids
+    assert_equal [ nap.id ], ids
   end
 
   test "active filters by run_type" do

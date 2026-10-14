@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Api::V1::TimerRunsController < ApplicationController
-  before_action :set_timer_run, only: [:update, :destroy]
+  before_action :set_timer_run, only: [ :update, :destroy ]
 
   # GET /api/v1/timer_runs
   # Optional query params: from, to (ISO8601 or YYYY-MM-DD), run_type
@@ -12,7 +12,7 @@ class Api::V1::TimerRunsController < ApplicationController
 
     if range
       timer_runs = timer_runs
-        .where('start_time < ? AND end_time >= ?', range[:end], range[:start])
+        .where("start_time < ? AND end_time >= ?", range[:end], range[:start])
         .order(start_time: :asc)
     else
       timer_runs = timer_runs.order(end_time: :desc)
@@ -39,12 +39,12 @@ class Api::V1::TimerRunsController < ApplicationController
   def create
     start_time = parse_time_param(params[:start_time])
     unless start_time
-      return render json: { error: 'start_time is required' }, status: :unprocessable_entity
+      return render json: { error: "start_time is required" }, status: :unprocessable_entity
     end
 
     run_type = params[:run_type].presence || TimerRun.run_types[:sleeping]
     unless TimerRun.run_types.value?(run_type)
-      return render json: { error: 'invalid run_type' }, status: :unprocessable_entity
+      return render json: { error: "invalid run_type" }, status: :unprocessable_entity
     end
 
     if bottle_submitted_create?(run_type)
@@ -82,7 +82,7 @@ class Api::V1::TimerRunsController < ApplicationController
     @timer_run.destroy!
     head :no_content
   rescue ActiveRecord::RecordNotDestroyed => e
-    render json: { error: e.message.presence || 'Could not delete timer run' },
+    render json: { error: e.message.presence || "Could not delete timer run" },
            status: :unprocessable_entity
   end
 
@@ -137,7 +137,7 @@ class Api::V1::TimerRunsController < ApplicationController
     if paused
       end_time = parse_time_param(params[:end_time])
       unless end_time
-        return render json: { error: 'end_time is required when pausing' }, status: :unprocessable_entity
+        return render json: { error: "end_time is required when pausing" }, status: :unprocessable_entity
       end
 
       attrs = { paused: true, end_time: end_time }
@@ -159,11 +159,11 @@ class Api::V1::TimerRunsController < ApplicationController
   def submit_timer_run
     end_time = parse_time_param(params[:end_time])
     unless end_time
-      return render json: { error: 'end_time is required' }, status: :unprocessable_entity
+      return render json: { error: "end_time is required" }, status: :unprocessable_entity
     end
 
     unless params[:duration].present?
-      return render json: { error: 'duration is required' }, status: :unprocessable_entity
+      return render json: { error: "duration is required" }, status: :unprocessable_entity
     end
 
     attrs = {
@@ -186,14 +186,14 @@ class Api::V1::TimerRunsController < ApplicationController
 
   def set_timer_run
     unless current_user
-      render json: { error: 'Unauthorized' }, status: :unauthorized
+      render json: { error: "Unauthorized" }, status: :unauthorized
       return
     end
 
     @timer_run = current_user.timer_runs.find_by(id: params[:id])
     return if @timer_run
 
-    render json: { error: 'Timer run not found' }, status: :not_found
+    render json: { error: "Timer run not found" }, status: :not_found
     nil
   end
 
@@ -223,7 +223,7 @@ class Api::V1::TimerRunsController < ApplicationController
     parsed = parse_time_param(value)
     return nil unless parsed
 
-    return parsed if value.to_s.include?('T')
+    return parsed if value.to_s.include?("T")
 
     boundary == :start ? parsed.beginning_of_day : parsed.end_of_day
   end

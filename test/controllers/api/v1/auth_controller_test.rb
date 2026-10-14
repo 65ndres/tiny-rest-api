@@ -423,10 +423,10 @@ class Api::V1::AuthControllerTest < ActionDispatch::IntegrationTest
       iat: 2.hours.ago.to_i
     }
 
-    require 'jwt'
+    require "jwt"
     # Use the same secret key that devise-jwt uses
-    secret = ENV['DEVISE_JWT_SECRET_KEY'].presence || Rails.application.secret_key_base
-    expired_token = JWT.encode(expired_payload, secret, 'HS256')
+    secret = ENV["DEVISE_JWT_SECRET_KEY"].presence || Rails.application.secret_key_base
+    expired_token = JWT.encode(expired_payload, secret, "HS256")
 
     delete "/api/v1/auth/logout", headers: {
       "Authorization" => "Bearer #{expired_token}"

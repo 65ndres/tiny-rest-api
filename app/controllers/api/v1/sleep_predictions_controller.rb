@@ -3,7 +3,7 @@
 class Api::V1::SleepPredictionsController < ApplicationController
   def show
     unless current_user
-      return render json: { error: 'Unauthorized' }, status: :unauthorized
+      return render json: { error: "Unauthorized" }, status: :unauthorized
     end
 
     submitted_runs = current_user.timer_runs

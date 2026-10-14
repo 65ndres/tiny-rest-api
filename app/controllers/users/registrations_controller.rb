@@ -9,7 +9,7 @@ class Users::RegistrationsController < Devise::RegistrationsController
       render json: { token: token, user: user_auth_payload(resource) }, status: :created
     else
       render json: {
-        status: {message: "User couldn't be created successfully. #{current_user.errors.full_messages.to_sentence}"}
+        status: { message: "User couldn't be created successfully. #{current_user.errors.full_messages.to_sentence}" }
       }, status: :unprocessable_entity
     end
   end

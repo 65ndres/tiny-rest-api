@@ -7,7 +7,7 @@ class Subscription < ApplicationRecord
 
   enum subscription_type: {
     basic: 0,
-    pro: 1,
+    pro: 1
   }
 
   enum processor: {
@@ -23,7 +23,7 @@ class Subscription < ApplicationRecord
   }
 
   scope :active_subscriptions, -> { where(status: :active) }
-  scope :inactive_subscriptions, -> { where(status: [:expired, :cancelled]) }
+  scope :inactive_subscriptions, -> { where(status: [ :expired, :cancelled ]) }
 
   before_validation :sync_active_flag
   before_save :deactivate_other_subscriptions_for_user, if: :should_deactivate_siblings?

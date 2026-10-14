@@ -7,19 +7,19 @@ class ApplicationController < ActionController::API
   def authenticate_user!
     return if authorized?
 
-    head :unauthorized
+    render json: { error: "Unauthorized" }, status: :unauthorized
   end
 
   def authorized?
-    token = request.headers['Authorization']&.split&.last
+    token = request.headers["Authorization"]&.split&.last
     return false unless token
 
     begin
       payload = Warden::JWTAuth::TokenDecoder.new.call(token)
       # Check if token is expired
-      return false unless payload['exp'] && Time.at(payload['exp']) > Time.now
+      return false unless payload["exp"] && Time.at(payload["exp"]) > Time.now
 
-      if payload['jti'] && JwtDenylist.exists?(jti: payload['jti'])
+      if payload["jti"] && JwtDenylist.exists?(jti: payload["jti"])
         return false
       end
 
@@ -31,7 +31,7 @@ class ApplicationController < ActionController::API
 
   def current_user
     @current_user ||= begin
-      token = request.headers['Authorization']&.split&.last
+      token = request.headers["Authorization"]&.split&.last
       return nil unless token
 
       begin
@@ -39,7 +39,7 @@ class ApplicationController < ActionController::API
         unless authorized?
           nil
         else
-          user = User.find(payload['sub'])
+          user = User.find(payload["sub"])
           user.deleted_at.present? ? nil : user
         end
       rescue JWT::DecodeError, JWT::ExpiredSignature, ActiveRecord::RecordNotFound
@@ -50,7 +50,7 @@ class ApplicationController < ActionController::API
 
   def sync_user_time_zone!
     user = current_user
-    requested_zone = request.headers['X-Time-Zone'].presence
+    requested_zone = request.headers["X-Time-Zone"].presence
     return unless user && requested_zone
     return if user.time_zone == requested_zone
 

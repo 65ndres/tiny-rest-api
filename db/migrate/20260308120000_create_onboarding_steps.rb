@@ -9,6 +9,6 @@ class CreateOnboardingSteps < ActiveRecord::Migration[7.2]
       t.timestamps
     end
 
-    add_index :onboarding_steps, [:onboarding_id, :position], unique: true
+    add_index :onboarding_steps, [ :onboarding_id, :position ], unique: true
   end
 end

@@ -29,7 +29,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "allows 0 and 6 daily naps without alt" do
-    [0, 6].each do |count|
+    [ 0, 6 ].each do |count|
       @user.daily_nap_count = count
       @user.daily_nap_count_alt = nil
 
@@ -65,4 +65,3 @@ class UserTest < ActiveSupport::TestCase
     assert_includes @user.errors[:baby_birthdate], "must be within the last 5 years"
   end
 end
-

@@ -54,7 +54,7 @@ Rails.application.configure do
   # # Add credentials and authentication only if both are provided
   # smtp_username = ENV['SMTP_USERNAME'].to_s.strip
   # smtp_password = ENV['SMTP_PASSWORD'].to_s.strip
-  
+
   # if smtp_username.present? && smtp_password.present?
   #   smtp_settings[:user_name] = smtp_username
   #   smtp_settings[:password] = smtp_password
@@ -65,7 +65,7 @@ Rails.application.configure do
   #     Rails.logger.warn "SMTP_USERNAME and SMTP_PASSWORD must be set to send emails via Gmail"
   #   end
   # end
-  
+
   # Add OpenSSL verify mode if specified
   # if ENV['SMTP_OPENSSL_VERIFY_MODE'].present?
   #   smtp_settings[:openssl_verify_mode] = ENV['SMTP_OPENSSL_VERIFY_MODE']

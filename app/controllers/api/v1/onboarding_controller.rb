@@ -13,12 +13,12 @@ class Api::V1::OnboardingController < ApplicationController
     step = params[:last_completed_step].presence || params.dig(:onboarding, :last_completed_step)
 
     unless step.present?
-      return render json: { error: 'last_completed_step is required' }, status: :bad_request
+      return render json: { error: "last_completed_step is required" }, status: :bad_request
     end
 
     unless Onboarding::STEPS.include?(step)
       return render json: {
-        error: 'Invalid onboarding step',
+        error: "Invalid onboarding step",
         allowed_steps: Onboarding::STEPS
       }, status: :unprocessable_entity
     end
@@ -31,7 +31,7 @@ class Api::V1::OnboardingController < ApplicationController
   def completed_onboarding
     @onboarding.update!(
       completed_at: Time.current,
-      last_completed_step: 'paywall'
+      last_completed_step: "paywall"
     )
     render json: { onboarding: onboarding_payload }, status: :ok
   end
@@ -42,7 +42,7 @@ class Api::V1::OnboardingController < ApplicationController
     return render json: { error: "Unauthorized" }, status: :unauthorized unless current_user
 
     @onboarding = current_user.onboarding
-    return render json: { error: "Onboarding not found" }, status: :not_found unless @onboarding
+    render json: { error: "Onboarding not found" }, status: :not_found unless @onboarding
   end
 
   def onboarding_payload

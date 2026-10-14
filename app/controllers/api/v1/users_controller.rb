@@ -3,7 +3,7 @@ class Api::V1::UsersController < ApplicationController
     if current_user
       render json: user_profile_json(current_user), status: :ok
     else
-      render json: { error: 'Unauthorized' }, status: :unauthorized
+      render json: { error: "Unauthorized" }, status: :unauthorized
     end
   end
 
@@ -11,7 +11,7 @@ class Api::V1::UsersController < ApplicationController
     if current_user
       if current_user.update(user_params)
         render json: user_profile_json(current_user).merge(
-          message: 'Profile updated successfully'
+          message: "Profile updated successfully"
         ), status: :ok
       else
         render json: {
@@ -19,22 +19,22 @@ class Api::V1::UsersController < ApplicationController
         }, status: :unprocessable_entity
       end
     else
-      render json: { error: 'Unauthorized' }, status: :unauthorized
+      render json: { error: "Unauthorized" }, status: :unauthorized
     end
   end
 
   def destroy
     unless current_user
-      return render json: { error: 'Unauthorized' }, status: :unauthorized
+      return render json: { error: "Unauthorized" }, status: :unauthorized
     end
 
     if current_user.cannot_delete_account_due_to_subscription?
       return render json: {
-        error: 'You must cancel your active subscription before deleting your account.'
+        error: "You must cancel your active subscription before deleting your account."
       }, status: :unprocessable_entity
     end
 
-    token = request.headers['Authorization']&.split&.last
+    token = request.headers["Authorization"]&.split&.last
     timestamp = Time.current.to_i
 
     current_user.transaction do
@@ -46,27 +46,27 @@ class Api::V1::UsersController < ApplicationController
 
       if token
         payload = Warden::JWTAuth::TokenDecoder.new.call(token)
-        if payload['jti']
+        if payload["jti"]
           JwtDenylist.create!(
-            jti: payload['jti'],
-            exp: payload['exp'] ? Time.at(payload['exp']) : Time.current + 1.hour
+            jti: payload["jti"],
+            exp: payload["exp"] ? Time.at(payload["exp"]) : Time.current + 1.hour
           )
         end
       end
     end
 
-    render json: { message: 'Account deleted' }, status: :ok
+    render json: { message: "Account deleted" }, status: :ok
   rescue JWT::DecodeError, JWT::ExpiredSignature
-    render json: { message: 'Account deleted' }, status: :ok
+    render json: { message: "Account deleted" }, status: :ok
   rescue ActiveRecord::RecordInvalid => e
     render json: { error: e.record.errors.full_messages }, status: :unprocessable_entity
   end
 
   def search
     query = params[:q]
-    
+
     unless query.present?
-      return render json: { error: 'Search query is required' }, status: :bad_request
+      return render json: { error: "Search query is required" }, status: :bad_request
     end
 
     users = User.search_by_username(query)
@@ -122,4 +122,3 @@ class Api::V1::UsersController < ApplicationController
     }
   end
 end
-

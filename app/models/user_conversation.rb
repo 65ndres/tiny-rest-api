@@ -4,4 +4,3 @@ class UserConversation < ApplicationRecord
 
   validates :user_id, uniqueness: { scope: :conversation_id }
 end
-

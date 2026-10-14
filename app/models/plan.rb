@@ -13,10 +13,10 @@ class Plan < ApplicationRecord
   end
 
   def self.default_trial_plan
-    find_or_create_by!(name: 'Trial') do |plan|
+    find_or_create_by!(name: "Trial") do |plan|
       plan.amount = 0
-      plan.currency = 'usd'
-      plan.interval = 'month'
+      plan.currency = "usd"
+      plan.interval = "month"
     end
   end
 end

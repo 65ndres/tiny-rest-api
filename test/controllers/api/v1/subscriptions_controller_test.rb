@@ -164,7 +164,7 @@ class Api::V1::SubscriptionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :created
     body = JSON.parse(response.body)
     assert_equal true, body["success"]
-    assert_equal ["Tiny Rest Pro"], body["created_from"]
+    assert_equal [ "Tiny Rest Pro" ], body["created_from"]
     assert_equal "pro", @user.reload.active_subscription.subscription_type
     assert @user.onboarding.reload.completed_at.present?
   end

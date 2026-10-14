@@ -1,6 +1,6 @@
 module Admin
   class BaseController < ActionController::Base
-    layout 'admin'
+    layout "admin"
 
     protect_from_forgery with: :exception
 
@@ -23,7 +23,7 @@ module Admin
     def authenticate_support_user!
       return if current_support_user
 
-      redirect_to admin_login_path, alert: 'Please sign in with the Support account.'
+      redirect_to admin_login_path, alert: "Please sign in with the Support account."
     end
 
     def sign_in_support_user!(user)
