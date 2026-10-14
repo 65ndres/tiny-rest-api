@@ -11,17 +11,17 @@ class Conversation < ApplicationRecord
   def self.between(user1, user2)
     # Find conversations that have both users (exactly these two)
     joins(:users)
-      .where(users: { id: [user1.id, user2.id] })
-      .group('conversations.id')
-      .having('COUNT(DISTINCT users.id) = ?', 2)
+      .where(users: { id: [ user1.id, user2.id ] })
+      .group("conversations.id")
+      .having("COUNT(DISTINCT users.id) = ?", 2)
       .first
   end
 
   # Per-user support thread with the Support account (conversation_type: 1).
   def self.find_or_create_support_for!(user)
     support = User.support_account
-    raise ActiveRecord::RecordNotFound, 'Support user not found' if support.nil?
-    raise ArgumentError, 'Cannot create a support conversation for the Support user' if user.support_account?
+    raise ActiveRecord::RecordNotFound, "Support user not found" if support.nil?
+    raise ArgumentError, "Cannot create a support conversation for the Support user" if user.support_account?
 
     existing = support
       .conversations
@@ -33,7 +33,7 @@ class Conversation < ApplicationRecord
 
     return existing if existing
 
-    create!(name: 'Support', conversation_type: SUPPORT_TYPE).tap do |conversation|
+    create!(name: "Support", conversation_type: SUPPORT_TYPE).tap do |conversation|
       conversation.users << user
       conversation.users << support
     end
@@ -58,5 +58,3 @@ class Conversation < ApplicationRecord
     messages.order(created_at: :desc).first
   end
 end
-
-

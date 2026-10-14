@@ -8,7 +8,7 @@ module Admin
 
       body = params[:body].to_s.strip
       if body.blank?
-        redirect_to admin_conversation_path(conversation), alert: 'Message cannot be empty.'
+        redirect_to admin_conversation_path(conversation), alert: "Message cannot be empty."
         return
       end
 
@@ -19,7 +19,7 @@ module Admin
       )
       conversation.update(read: true, updated_at: Time.current)
 
-      redirect_to admin_conversation_path(conversation), notice: 'Reply sent.'
+      redirect_to admin_conversation_path(conversation), notice: "Reply sent."
     end
   end
 end

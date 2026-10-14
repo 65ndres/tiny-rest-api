@@ -18,7 +18,7 @@ class Api::V1::SubscriptionsController < ApplicationController
 
       render json: response_data, status: :ok
     else
-      render json: { error: 'Unauthorized' }, status: :unauthorized
+      render json: { error: "Unauthorized" }, status: :unauthorized
     end
   end
 
@@ -30,7 +30,7 @@ class Api::V1::SubscriptionsController < ApplicationController
   # Body: { app_user_id: "optional", receipt_data: {} }
   def validate
     unless current_user
-      return render json: { error: 'Unauthorized' }, status: :unauthorized
+      return render json: { error: "Unauthorized" }, status: :unauthorized
     end
 
     app_user_id = params[:app_user_id] || current_user.id.to_s
@@ -65,7 +65,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     Rails.logger.error("Purchase validation error: #{e.message}")
     render json: {
       success: false,
-      error: 'Failed to validate purchase'
+      error: "Failed to validate purchase"
     }, status: :internal_server_error
   end
 
@@ -73,7 +73,7 @@ class Api::V1::SubscriptionsController < ApplicationController
   # POST /api/v1/subscription/sync
   def sync
     unless current_user
-      return render json: { error: 'Unauthorized' }, status: :unauthorized
+      return render json: { error: "Unauthorized" }, status: :unauthorized
     end
 
     app_user_id = params[:app_user_id] || current_user.id.to_s
@@ -83,7 +83,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     unless subscriber_data
       return render json: {
         success: false,
-        error: 'Failed to fetch subscriber info from RevenueCat'
+        error: "Failed to fetch subscriber info from RevenueCat"
       }, status: :unprocessable_entity
     end
 
@@ -108,7 +108,7 @@ class Api::V1::SubscriptionsController < ApplicationController
     Rails.logger.error("Subscription sync error: #{e.message}")
     render json: {
       success: false,
-      error: 'Failed to sync subscription'
+      error: "Failed to sync subscription"
     }, status: :internal_server_error
   end
 
@@ -117,59 +117,59 @@ class Api::V1::SubscriptionsController < ApplicationController
       subscription_type: :basic,
       processor: :apple,
       amount: 299.0,
-      currency: 'usd',
+      currency: "usd",
       status: :active
     )
     current_user.onboarding.update!(
       completed_at: Time.current,
-      last_completed_step: 'paywall'
+      last_completed_step: "paywall"
     )
 
     render json: { subscription: subscription }, status: :created
   end
 
-  PRO_ENTITLEMENT_IDENTIFIER = 'Tiny Rest Pro'
+  PRO_ENTITLEMENT_IDENTIFIER = "Tiny Rest Pro"
 
   def create_pro_subscription
-    return render json: { error: 'Unauthorized' }, status: :unauthorized unless current_user
+    return render json: { error: "Unauthorized" }, status: :unauthorized unless current_user
 
-    customer_info = normalize_hash(params['customerInfo'] || params[:customerInfo])
+    customer_info = normalize_hash(params["customerInfo"] || params[:customerInfo])
     active_rc_subscriptions = active_subscriptions_from_customer_info(customer_info)
     active_entitlement = active_pro_entitlement_from_customer_info(customer_info)
 
     if active_rc_subscriptions.empty? && active_entitlement.nil?
-      return render json: { success: false, error: 'No active subscriptions found' }, status: :unprocessable_entity
+      return render json: { success: false, error: "No active subscriptions found" }, status: :unprocessable_entity
     end
 
     # Prefer product subscription data; fall back to entitlement-only (e.g. RC Test Store).
     if active_rc_subscriptions.any?
       product_identifier, subscription_data_hash = active_rc_subscriptions.first
       created_from = product_identifier
-      store = subscription_data_hash['store'] || subscription_data_hash[:store] || 'APP_STORE'
-      price = normalize_hash(subscription_data_hash['price'] || subscription_data_hash[:price])
-      amount = price['amount'] || price[:amount] || 0
-      currency = (price['currency'] || price[:currency] || 'usd').to_s.downcase
+      store = subscription_data_hash["store"] || subscription_data_hash[:store] || "APP_STORE"
+      price = normalize_hash(subscription_data_hash["price"] || subscription_data_hash[:price])
+      amount = price["amount"] || price[:amount] || 0
+      currency = (price["currency"] || price[:currency] || "usd").to_s.downcase
       expires_date =
-        subscription_data_hash['expiresDate'] ||
+        subscription_data_hash["expiresDate"] ||
         subscription_data_hash[:expiresDate] ||
-        subscription_data_hash['expirationDate'] ||
+        subscription_data_hash["expirationDate"] ||
         subscription_data_hash[:expirationDate]
     else
       created_from = PRO_ENTITLEMENT_IDENTIFIER
-      store = active_entitlement['store'] || active_entitlement[:store] || 'APP_STORE'
+      store = active_entitlement["store"] || active_entitlement[:store] || "APP_STORE"
       amount = 0
-      currency = 'usd'
+      currency = "usd"
       expires_date =
-        active_entitlement['expirationDate'] ||
+        active_entitlement["expirationDate"] ||
         active_entitlement[:expirationDate] ||
-        active_entitlement['expiresDate'] ||
+        active_entitlement["expiresDate"] ||
         active_entitlement[:expiresDate]
     end
 
     processor =
       case store.to_s.upcase
-      when 'APP_STORE' then :apple
-      when 'PLAY_STORE', 'GOOGLE_PLAY' then :google
+      when "APP_STORE" then :apple
+      when "PLAY_STORE", "GOOGLE_PLAY" then :google
       else :apple
       end
 
@@ -187,12 +187,12 @@ class Api::V1::SubscriptionsController < ApplicationController
 
     current_user.onboarding&.update!(
       completed_at: Time.current,
-      last_completed_step: 'paywall'
+      last_completed_step: "paywall"
     )
     render json: {
       success: true,
-      created_from: [created_from],
-      subscriptions: [subscription]
+      created_from: [ created_from ],
+      subscriptions: [ subscription ]
     }, status: :created
   rescue ArgumentError => e
     Rails.logger.error("create_pro_subscription error: #{e.class} - #{e.message}")
@@ -211,21 +211,21 @@ class Api::V1::SubscriptionsController < ApplicationController
 
   def active_subscriptions_from_customer_info(customer_info)
     subscriptions_by_product_identifier = normalize_hash(
-      customer_info['subscriptionsByProductIdentifier'] ||
+      customer_info["subscriptionsByProductIdentifier"] ||
       customer_info[:subscriptionsByProductIdentifier]
     )
 
     subscriptions_by_product_identifier.filter_map do |product_identifier, subscription_data|
       subscription_data_hash = normalize_hash(subscription_data)
-      next unless active_flag?(subscription_data_hash['isActive'] || subscription_data_hash[:isActive])
+      next unless active_flag?(subscription_data_hash["isActive"] || subscription_data_hash[:isActive])
 
-      [product_identifier, subscription_data_hash]
+      [ product_identifier, subscription_data_hash ]
     end
   end
 
   def active_pro_entitlement_from_customer_info(customer_info)
-    entitlements = normalize_hash(customer_info['entitlements'] || customer_info[:entitlements])
-    active = normalize_hash(entitlements['active'] || entitlements[:active])
+    entitlements = normalize_hash(customer_info["entitlements"] || customer_info[:entitlements])
+    active = normalize_hash(entitlements["active"] || entitlements[:active])
     entitlement = active[PRO_ENTITLEMENT_IDENTIFIER] || active[PRO_ENTITLEMENT_IDENTIFIER.to_sym]
     return nil if entitlement.nil?
 
@@ -233,6 +233,6 @@ class Api::V1::SubscriptionsController < ApplicationController
   end
 
   def active_flag?(value)
-    value == true || value.to_s.downcase == 'true'
+    value == true || value.to_s.downcase == "true"
   end
 end

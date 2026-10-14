@@ -6,11 +6,11 @@ module Admin
         .includes(:users, :messages)
         .left_joins(:messages)
         .select(
-          'conversations.*',
-          'MAX(messages.created_at) AS last_message_at'
+          "conversations.*",
+          "MAX(messages.created_at) AS last_message_at"
         )
-        .group('conversations.id')
-        .order(Arel.sql('MAX(messages.created_at) DESC NULLS LAST, conversations.updated_at DESC'))
+        .group("conversations.id")
+        .order(Arel.sql("MAX(messages.created_at) DESC NULLS LAST, conversations.updated_at DESC"))
     end
 
     def show

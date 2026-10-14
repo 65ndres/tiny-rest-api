@@ -229,7 +229,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
   test "should limit search results to 20 users" do
     25.times do |i|
       User.create!(
-        email: "user#{i}@example.com",
+        email: "testuser#{i}@example.com",
         password: "password123",
         password_confirmation: "password123",
         username: "testuser#{i}"
@@ -404,7 +404,7 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "should accept daily_nap_count of 0 and 6" do
-    [0, 6].each do |count|
+    [ 0, 6 ].each do |count|
       post "/api/v1/user",
            params: {
              user: {
@@ -468,4 +468,3 @@ class Api::V1::UsersControllerTest < ActionDispatch::IntegrationTest
     assert_equal "POSTUpdated", @user1.first_name
   end
 end
-

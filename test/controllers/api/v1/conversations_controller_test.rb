@@ -136,7 +136,7 @@ class Api::V1::ConversationsControllerTest < ActionDispatch::IntegrationTest
       read: false
     )
 
-    get "/api/v1/conversation/new", 
+    get "/api/v1/conversation/new",
         params: { conversation_id: conversation.id },
         headers: auth_headers(@token1)
 
@@ -312,4 +312,3 @@ class Api::V1::ConversationsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 2, unread_count
   end
 end
-

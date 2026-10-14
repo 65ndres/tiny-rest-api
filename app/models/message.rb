@@ -1,6 +1,6 @@
 class Message < ApplicationRecord
   belongs_to :conversation
-  belongs_to :sender, class_name: 'User'
+  belongs_to :sender, class_name: "User"
 
   after_create :mark_conversation_as_unread
 
@@ -13,4 +13,3 @@ class Message < ApplicationRecord
     conversation.update(read: false)
   end
 end
-

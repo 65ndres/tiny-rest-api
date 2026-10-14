@@ -15,4 +15,3 @@ class CreateMessages < ActiveRecord::Migration[7.2]
     # add_index :messages, :receiver_id
   end
 end
-

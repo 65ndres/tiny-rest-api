@@ -1,8 +1,8 @@
 class User < ApplicationRecord
   include Devise::JWT::RevocationStrategies::JTIMatcher
 
-  SUPPORT_EMAIL = 'support.tinyrest.app@gmail.com'
-  SUPPORT_USERNAME = 'Support'
+  SUPPORT_EMAIL = "support.tinyrest.app@gmail.com"
+  SUPPORT_USERNAME = "Support"
   WELCOME_MESSAGE_BODY =
     "Welcome to TinyRest! We're glad you're here. If you have any questions " \
     "or need help with naps, feeding, or your account, reply here anytime — " \
@@ -13,13 +13,13 @@ class User < ApplicationRecord
   # Messaging associations
   has_many :user_conversations, dependent: :destroy
   has_many :conversations, through: :user_conversations
-  has_many :sent_messages, class_name: 'Message', foreign_key: 'sender_id', dependent: :destroy
-  has_many :received_messages, class_name: 'Message', foreign_key: 'receiver_id', dependent: :destroy
+  has_many :sent_messages, class_name: "Message", foreign_key: "sender_id", dependent: :destroy
+  has_many :received_messages, class_name: "Message", foreign_key: "receiver_id", dependent: :destroy
   has_many :admin_conversations, dependent: :destroy
 
   # Subscription associations
   has_many :subscriptions, dependent: :destroy
-  has_one :active_subscription, -> { where(status: :active) }, class_name: 'Subscription'
+  has_one :active_subscription, -> { where(status: :active) }, class_name: "Subscription"
 
   def latest_subscription
     subscriptions.order(created_at: :desc).first
@@ -37,7 +37,7 @@ class User < ApplicationRecord
 
   DEFAULT_DAY_START_MINUTES = 570  # 9:30 AM
   DEFAULT_DAY_END_MINUTES = 1320   # 10:00 PM
-  ALLOWED_NAP_COUNT_RANGES = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6]].freeze
+  ALLOWED_NAP_COUNT_RANGES = [ [ 0, 1 ], [ 1, 2 ], [ 2, 3 ], [ 3, 4 ], [ 4, 5 ], [ 5, 6 ] ].freeze
 
   validates :username, presence: true, uniqueness: true, allow_nil: true
   validates :daily_nap_count, inclusion: { in: 0..6 }
@@ -52,7 +52,7 @@ class User < ApplicationRecord
   validate :time_zone_must_be_valid
 
   # Search users by username
-  scope :search_by_username, ->(query) { where('username ILIKE ?', "%#{query}%") }
+  scope :search_by_username, ->(query) { where("username ILIKE ?", "%#{query}%") }
 
   def self.support_account
     find_by(email: SUPPORT_EMAIL) || find_by(username: SUPPORT_USERNAME)
@@ -66,14 +66,14 @@ class User < ApplicationRecord
   after_create :send_welcome_message
   after_create :setup_onboarding
   # after_create :create_free_trial_subscription
-  
+
   def generate_username
     return unless email.present?
     return if username.present? # Skip if username is already set
-    
+
     # Extract email username (part before @)
-    email_username = email.split('@').first
-    
+    email_username = email.split("@").first
+
     # List of random words to append
     random_words = %w[
       star moon sun ocean river mountain forest valley desert island
@@ -84,24 +84,24 @@ class User < ApplicationRecord
       warrior guardian protector seeker wanderer explorer dreamer
       light shadow dawn dusk twilight sunrise sunset horizon
     ]
-    
+
     # Generate username with email and random word, ensuring uniqueness
     while true
       random_word = random_words.sample
       self.username = "#{email_username}_#{random_word}"
-      
+
       # Check if username is valid (unique)
       errors.clear
       if self.valid?
         break
       end
-      
+
       # If not unique, try with a random number appended
       errors.clear
       self.username = "#{email_username}_#{random_word}_#{rand(1000..9999)}"
       break if self.valid?
     end
-    
+
     save
   end
 
@@ -166,9 +166,9 @@ class User < ApplicationRecord
 
   def baby_birthdate_must_be_valid
     if baby_birthdate > Date.current
-      errors.add(:baby_birthdate, 'must be in the past')
+      errors.add(:baby_birthdate, "must be in the past")
     elsif baby_birthdate < 5.years.ago.to_date
-      errors.add(:baby_birthdate, 'must be within the last 5 years')
+      errors.add(:baby_birthdate, "must be within the last 5 years")
     end
   end
 
@@ -176,14 +176,14 @@ class User < ApplicationRecord
     return if day_start_minutes.blank? || day_end_minutes.blank?
     return if day_start_minutes < day_end_minutes
 
-    errors.add(:day_end_minutes, 'must be after day start')
+    errors.add(:day_end_minutes, "must be after day start")
   end
 
   def daily_nap_count_alt_must_be_allowed_range
     return if daily_nap_count_alt.nil?
 
-    unless ALLOWED_NAP_COUNT_RANGES.include?([daily_nap_count, daily_nap_count_alt])
-      errors.add(:daily_nap_count_alt, 'must be an allowed nap range')
+    unless ALLOWED_NAP_COUNT_RANGES.include?([ daily_nap_count, daily_nap_count_alt ])
+      errors.add(:daily_nap_count_alt, "must be an allowed nap range")
     end
   end
 
@@ -192,11 +192,11 @@ class User < ApplicationRecord
 
     TZInfo::Timezone.get(time_zone)
   rescue TZInfo::InvalidTimezoneIdentifier
-    errors.add(:time_zone, 'is not valid')
+    errors.add(:time_zone, "is not valid")
   end
 
   def create_free_trial_subscription
-    basic_plan = Plan.find_by(name: 'Basic')
+    basic_plan = Plan.find_by(name: "Basic")
     return unless basic_plan
 
     subscriptions.create!(

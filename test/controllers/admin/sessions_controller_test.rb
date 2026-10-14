@@ -30,7 +30,7 @@ class Admin::SessionsControllerTest < ActionDispatch::IntegrationTest
     }
 
     assert_response :unprocessable_entity
-    assert_match(/Invalid Support credentials/, response.body)
+    assert_match(/Only the Support account can sign in here/, response.body)
   end
 
   test "wrong password is rejected" do

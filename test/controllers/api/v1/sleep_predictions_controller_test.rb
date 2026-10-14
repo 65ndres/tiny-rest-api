@@ -89,7 +89,7 @@ class Api::V1::SleepPredictionsControllerTest < ActionDispatch::IntegrationTest
       assert_equal 2, json_response["daily_nap_count"]
       assert_equal 3, json_response["daily_nap_count_alt"]
       assert_equal 2, json_response["range_predictions"].length
-      assert_equal [2, 3], json_response["range_predictions"].map { |prediction| prediction["daily_nap_count"] }
+      assert_equal [ 2, 3 ], json_response["range_predictions"].map { |prediction| prediction["daily_nap_count"] }
     end
   end
 end

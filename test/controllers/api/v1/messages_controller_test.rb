@@ -266,4 +266,3 @@ class Api::V1::MessagesControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user1.last_name, sender["last_name"]
   end
 end
-

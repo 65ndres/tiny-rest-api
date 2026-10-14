@@ -141,7 +141,7 @@ class SleepPredictionService
     end
 
     build_result(
-      status: 'next_nap',
+      status: "next_nap",
       predicted_at: predicted_at,
       wake_window_minutes: wake_minutes,
       nap_length_minutes: schedule[:nap_length_minutes],
@@ -167,7 +167,7 @@ class SleepPredictionService
   def self.baby_age_in_months(birthdate, today = Date.current)
     months = ((today.year - birthdate.year) * 12) + (today.month - birthdate.month)
     months -= 1 if today.day < birthdate.day
-    [months, 0].max
+    [ months, 0 ].max
   end
 
   def self.schedule_for(age_months, nap_count)
@@ -209,7 +209,7 @@ class SleepPredictionService
 
     lower = normalize_daily_nap_count(@user.daily_nap_count)
     upper = alt.to_i
-    return upper if User::ALLOWED_NAP_COUNT_RANGES.include?([lower, upper])
+    return upper if User::ALLOWED_NAP_COUNT_RANGES.include?([ lower, upper ])
 
     nil
   end
@@ -256,7 +256,7 @@ class SleepPredictionService
       quiet_end = day_start_today - OVERNIGHT_QUIET_BUFFER_MINUTES.minutes
     end
 
-    [quiet_start, quiet_end]
+    [ quiet_start, quiet_end ]
   end
 
   def in_overnight_quiet_window?
@@ -306,7 +306,7 @@ class SleepPredictionService
     end
 
     build_result(
-      status: 'next_nap',
+      status: "next_nap",
       predicted_at: next_time,
       wake_window_minutes: schedule[:wake_window_minutes],
       nap_length_minutes: schedule[:nap_length_minutes],
@@ -319,13 +319,13 @@ class SleepPredictionService
     wake_minutes = schedule[:wake_window_minutes]
     predicted_at = if nap_count.zero? || last_wake_time.nil?
                      day_end_today
-                   else
+    else
                      effective_wake + wake_minutes.minutes
-                   end
+    end
     predicted_at = day_end_today if predicted_at > day_end_today
 
     build_result(
-      status: 'bedtime',
+      status: "bedtime",
       predicted_at: predicted_at,
       wake_window_minutes: wake_minutes,
       nap_length_minutes: schedule[:nap_length_minutes],
@@ -336,7 +336,7 @@ class SleepPredictionService
 
   def bedtime_without_time_result(nap_count:, naps_today:, schedule:)
     build_result(
-      status: 'bedtime',
+      status: "bedtime",
       predicted_at: nil,
       wake_window_minutes: schedule[:wake_window_minutes],
       nap_length_minutes: schedule[:nap_length_minutes],
@@ -348,13 +348,13 @@ class SleepPredictionService
   def sleeping_runs
     @sleeping_runs ||= if @submitted_runs
                          Array(@submitted_runs)
-                       else
+    else
                          @user.timer_runs
                            .submitted
                            .where(run_type: TimerRun.run_types[:sleeping])
                            .order(end_time: :desc)
                            .to_a
-                       end
+    end
   end
 
   def active_sleeping_run
@@ -395,10 +395,10 @@ class SleepPredictionService
                 day_end_minutes: day_end_minutes,
                 time_zone: @time_zone
               )
-               'currently_sleeping'
-             else
-               'currently_napping'
-             end
+               "currently_sleeping"
+    else
+               "currently_napping"
+    end
     elapsed_minutes = ((@now - active_sleep.start_time.in_time_zone(@time_zone)) / 60).floor
 
     build_result(
@@ -417,7 +417,7 @@ class SleepPredictionService
 
   def needs_birthdate_result(nap_count:)
     build_result(
-      status: 'needs_birthdate',
+      status: "needs_birthdate",
       predicted_at: nil,
       wake_window_minutes: nil,
       nap_length_minutes: nil,

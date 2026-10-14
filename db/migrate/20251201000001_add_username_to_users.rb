@@ -4,4 +4,3 @@ class AddUsernameToUsers < ActiveRecord::Migration[7.2]
     add_index :users, :username, unique: true
   end
 end
-

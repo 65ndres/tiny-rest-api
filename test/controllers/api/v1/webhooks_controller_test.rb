@@ -79,13 +79,13 @@ class Api::V1::WebhooksControllerTest < ActionDispatch::IntegrationTest
 
   def base_event
     {
-      "aliases" => [@user.id.to_s],
+      "aliases" => [ @user.id.to_s ],
       "app_id" => "app3a80a76f44",
       "app_user_id" => @user.id.to_s,
       "country_code" => "US",
       "currency" => "USD",
       "entitlement_id" => nil,
-      "entitlement_ids" => ["Promsas Pro"],
+      "entitlement_ids" => [ "Promsas Pro" ],
       "environment" => "SANDBOX",
       "event_timestamp_ms" => 1_774_677_549_260,
       "expiration_at_ms" => 1_774_677_845_000,

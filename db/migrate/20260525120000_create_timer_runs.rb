@@ -10,6 +10,6 @@ class CreateTimerRuns < ActiveRecord::Migration[7.2]
       t.timestamps
     end
 
-    add_index :timer_runs, [:user_id, :submitted]
+    add_index :timer_runs, [ :user_id, :submitted ]
   end
 end

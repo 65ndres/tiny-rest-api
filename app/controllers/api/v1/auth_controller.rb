@@ -1,6 +1,6 @@
 class Api::V1::AuthController < ApplicationController
   include Devise::Controllers::Helpers
-  require 'sendgrid-ruby'
+  require "sendgrid-ruby"
   include SendGrid
 
   # Skip authentication for public actions
@@ -15,19 +15,19 @@ class Api::V1::AuthController < ApplicationController
   def login
     user = User.find_for_authentication(email: params[:email])
     if user&.deleted_at.present?
-      render json: { error: 'Invalid credentials' }, status: :unauthorized
+      render json: { error: "Invalid credentials" }, status: :unauthorized
     elsif user&.valid_password?(params[:password])
       if email_verification_required? && user.email_verified_at.blank?
         issue_verification_code!(user)
         return render json: {
-          error: 'Please verify your email before logging in.'
+          error: "Please verify your email before logging in."
         }, status: :unauthorized
       end
 
       token = Warden::JWTAuth::UserEncoder.new.call(user, :user, nil).first
       render json: { token: token, user: user_auth_payload(user) }, status: :ok
     else
-      render json: { error: 'Invalid credentials' }, status: :unauthorized
+      render json: { error: "Invalid credentials" }, status: :unauthorized
     end
   end
 
@@ -38,8 +38,8 @@ class Api::V1::AuthController < ApplicationController
 
     unless password_confirmation.present?
       return render json: {
-        message: 'Validation failed',
-        errors: ["Password confirmation can't be blank"]
+        message: "Validation failed",
+        errors: [ "Password confirmation can't be blank" ]
       }, status: :unprocessable_entity
     end
 
@@ -47,8 +47,8 @@ class Api::V1::AuthController < ApplicationController
     if existing
       if existing.email_verified_at.present?
         return render json: {
-          message: 'Validation failed',
-          errors: ['Email has already been taken']
+          message: "Validation failed",
+          errors: [ "Email has already been taken" ]
         }, status: :unprocessable_entity
       end
 
@@ -58,7 +58,7 @@ class Api::V1::AuthController < ApplicationController
         return render_signup_success(existing)
       else
         return render json: {
-          message: 'Validation failed',
+          message: "Validation failed",
           errors: existing.errors.full_messages
         }, status: :unprocessable_entity
       end
@@ -73,7 +73,7 @@ class Api::V1::AuthController < ApplicationController
       render_signup_success(user)
     else
       render json: {
-        message: 'Validation failed',
+        message: "Validation failed",
         errors: user.errors.full_messages
       }, status: :unprocessable_entity
     end
@@ -84,12 +84,12 @@ class Api::V1::AuthController < ApplicationController
     code = params[:code].to_s.strip
 
     unless email.present? && code.present?
-      return render json: { error: 'Email and code are required' }, status: :bad_request
+      return render json: { error: "Email and code are required" }, status: :bad_request
     end
 
     user = User.find_by(email: email)
     unless user
-      return render json: { error: 'Invalid or expired code' }, status: :unauthorized
+      return render json: { error: "Invalid or expired code" }, status: :unauthorized
     end
 
     if user.email_verified_at.present?
@@ -98,7 +98,7 @@ class Api::V1::AuthController < ApplicationController
     end
 
     unless verification_code_valid?(user, code)
-      return render json: { error: 'Invalid or expired code' }, status: :unauthorized
+      return render json: { error: "Invalid or expired code" }, status: :unauthorized
     end
 
     user.update!(
@@ -115,7 +115,7 @@ class Api::V1::AuthController < ApplicationController
     email = params[:email].to_s.downcase.strip
 
     unless email.present?
-      return render json: { error: 'Email is required' }, status: :bad_request
+      return render json: { error: "Email is required" }, status: :bad_request
     end
 
     user = User.find_by(email: email)
@@ -124,33 +124,33 @@ class Api::V1::AuthController < ApplicationController
     end
 
     render json: {
-      message: 'If an unverified account with that email exists, you will receive a verification code.'
+      message: "If an unverified account with that email exists, you will receive a verification code."
     }, status: :ok
   end
 
   def logout
-    token = request.headers['Authorization']&.split&.last
+    token = request.headers["Authorization"]&.split&.last
     if token
       begin
         payload = Warden::JWTAuth::TokenDecoder.new.call(token)
         # Add token to denylist if it has a jti
-        if payload['jti']
-          JwtDenylist.create(jti: payload['jti'], exp: payload['exp'] ? Time.at(payload['exp']) : Time.now + 1.hour)
+        if payload["jti"]
+          JwtDenylist.create(jti: payload["jti"], exp: payload["exp"] ? Time.at(payload["exp"]) : Time.now + 1.hour)
         end
-        render json: { message: 'Logged out successfully' }, status: :ok
+        render json: { message: "Logged out successfully" }, status: :ok
       rescue JWT::ExpiredSignature => e
         # Handle expired tokens gracefully - decode without verification to get jti
         begin
-          require 'jwt'
+          require "jwt"
           # Decode without verification to extract payload from expired token
           decoded = JWT.decode(token, nil, false)[0]
-          if decoded['jti']
-            JwtDenylist.create(jti: decoded['jti'], exp: decoded['exp'] ? Time.at(decoded['exp']) : Time.now + 1.hour)
+          if decoded["jti"]
+            JwtDenylist.create(jti: decoded["jti"], exp: decoded["exp"] ? Time.at(decoded["exp"]) : Time.now + 1.hour)
           end
-          render json: { message: 'Token expired, but logged out successfully' }, status: :ok
+          render json: { message: "Token expired, but logged out successfully" }, status: :ok
         rescue => decode_error
           # If we can't decode it at all, just return success (token is already invalid)
-          render json: { message: 'Token expired' }, status: :ok
+          render json: { message: "Token expired" }, status: :ok
         end
       rescue JWT::DecodeError => e
         render json: { error: "Invalid token: #{e.message}" }, status: :bad_request
@@ -158,13 +158,13 @@ class Api::V1::AuthController < ApplicationController
         render json: { error: "Failed to revoke token: #{e.message}" }, status: :unprocessable_entity
       end
     else
-      render json: { error: 'No token provided' }, status: :bad_request
+      render json: { error: "No token provided" }, status: :bad_request
     end
   end
 
   def refresh_user
     token = Warden::JWTAuth::UserEncoder.new.call(current_user, :user, nil).first
-    render json: { token:, user: user_auth_payload(current_user)}, status: :ok
+    render json: { token:, user: user_auth_payload(current_user) }, status: :ok
   end
 
   private
@@ -180,7 +180,7 @@ class Api::V1::AuthController < ApplicationController
 
   def verification_pending_payload(user)
     {
-      message: 'Verification code sent',
+      message: "Verification code sent",
       email: user.email,
       needs_verification: true
     }
@@ -235,37 +235,37 @@ class Api::V1::AuthController < ApplicationController
       return
     end
 
-    api_key = ENV['SENDGRID_API_KEY']
+    api_key = ENV["SENDGRID_API_KEY"]
 
     unless api_key.present?
-      Rails.logger.warn 'SENDGRID_API_KEY missing; skipping signup verification email'
+      Rails.logger.warn "SENDGRID_API_KEY missing; skipping signup verification email"
       return
     end
 
-    from = Email.new(email: ENV.fetch('SENDGRID_FROM_EMAIL', 'tinyrest.app.support@gmail.com'))
+    from = Email.new(email: ENV.fetch("SENDGRID_FROM_EMAIL", "tinyrest.app.support@gmail.com"))
     to = Email.new(email: user.email)
-    subject = 'Verify your TinyRest account'
+    subject = "Verify your TinyRest account"
 
     html_content = generate_verification_html_content(user, code)
     text_content = generate_verification_text_content(user, code)
 
-    text_content_obj = Content.new(type: 'text/plain', value: text_content)
-    html_content_obj = Content.new(type: 'text/html', value: html_content)
+    text_content_obj = Content.new(type: "text/plain", value: text_content)
+    html_content_obj = Content.new(type: "text/html", value: html_content)
 
     mail = Mail.new(from, subject, to, text_content_obj)
     mail.add_content(html_content_obj)
 
     sg = SendGrid::API.new(api_key: api_key)
-    response = sg.client.mail._('send').post(request_body: mail.to_json)
+    response = sg.client.mail._("send").post(request_body: mail.to_json)
 
     status_code = response.status_code.to_i
     Rails.logger.info "SendGrid Response: #{status_code}"
     Rails.logger.info "SendGrid Body: #{response.body}"
 
-    if [200, 201, 202].include?(status_code)
-      Rails.logger.info 'Verification email sent successfully via SendGrid'
+    if [ 200, 201, 202 ].include?(status_code)
+      Rails.logger.info "Verification email sent successfully via SendGrid"
     else
-      error_message = 'Failed to send email via SendGrid'
+      error_message = "Failed to send email via SendGrid"
       if response.body.present?
         parsed_body = JSON.parse(response.body) rescue response.body
         error_message += ": #{parsed_body}"
@@ -273,7 +273,7 @@ class Api::V1::AuthController < ApplicationController
       Rails.logger.error "SendGrid Error (#{status_code}): #{error_message}"
 
       if status_code == 401
-        raise 'SendGrid authentication failed. Please verify your SENDGRID_API_KEY is correct and has proper permissions.'
+        raise "SendGrid authentication failed. Please verify your SENDGRID_API_KEY is correct and has proper permissions."
       else
         raise error_message
       end

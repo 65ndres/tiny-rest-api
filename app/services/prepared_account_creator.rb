@@ -152,7 +152,7 @@ class PreparedAccountCreator
     latest_end = now - 1.minute
     daytime_start = day_begin + user.day_start_minutes.minutes
     daytime_end = day_begin + user.day_end_minutes.minutes
-    window_end = [daytime_end, latest_end].min
+    window_end = [ daytime_end, latest_end ].min
     window_start = daytime_start
 
     if window_end <= window_start
@@ -179,7 +179,7 @@ class PreparedAccountCreator
 
     Array.new(@naps_taken) do |index|
       start_time = window_start + (index * (nap_length + gap))
-      [start_time, start_time + nap_length]
+      [ start_time, start_time + nap_length ]
     end
   end
 
