@@ -16,6 +16,10 @@ class SleepPredictionService
   # After bedtime + 2h and before wake − 2h, do not suggest a next sleep clock time.
   OVERNIGHT_QUIET_BUFFER_MINUTES = 120
 
+  # A nap that has not started stays the prediction (shown as overdue) for this
+  # long past its time before it counts as missed.
+  MISSED_NAP_GRACE_MINUTES = 20
+
   AGE_SCHEDULES = [
     {
       age: 0..1,
@@ -133,6 +137,23 @@ class SleepPredictionService
 
     wake_minutes = schedule[:wake_window_minutes]
     predicted_at = effective_wake + wake_minutes.minutes
+
+    # A missed nap should not leave a stale clock time on screen.
+    if predicted_at < missed_nap_cutoff
+      predicted_at = next_open_nap_slot(
+        predicted_at,
+        schedule: schedule,
+        remaining_naps: resolved_nap_count - naps_today
+      )
+      if predicted_at.nil?
+        return bedtime_result(
+          nap_count: resolved_nap_count,
+          naps_today: naps_today,
+          schedule: schedule,
+          at_day_end: true
+        )
+      end
+    end
 
     # Do not schedule another nap at/after the user's day-end cutoff.
     if on_or_after_day_end?(predicted_at)
@@ -299,7 +320,7 @@ class SleepPredictionService
     end
 
     times = ideal_nap_start_times(nap_count, schedule)
-    next_time = times.find { |time| time > @now }
+    next_time = times.find { |time| time >= missed_nap_cutoff }
     if next_time.nil?
       return bedtime_result(nap_count: nap_count, naps_today: naps_today, schedule: schedule)
     end
@@ -314,9 +335,29 @@ class SleepPredictionService
     )
   end
 
-  def bedtime_result(nap_count:, naps_today:, schedule:)
+  # Nap times before this have been missed; later ones are upcoming or overdue.
+  def missed_nap_cutoff
+    @now - MISSED_NAP_GRACE_MINUTES.minutes
+  end
+
+  # Steps a missed nap forward by whole wake-window + nap cycles, using up one
+  # of the remaining naps per step. Returns nil when no slot is left today.
+  def next_open_nap_slot(missed_at, schedule:, remaining_naps:)
+    cycle = (schedule[:wake_window_minutes] + schedule[:nap_length_minutes]).minutes
+    slot = missed_at
+
+    (remaining_naps - 1).times do
+      slot += cycle
+      return nil if on_or_after_day_end?(slot)
+      return slot if slot >= missed_nap_cutoff
+    end
+
+    nil
+  end
+
+  def bedtime_result(nap_count:, naps_today:, schedule:, at_day_end: false)
     wake_minutes = schedule[:wake_window_minutes]
-    predicted_at = if nap_count.zero? || last_wake_time.nil?
+    predicted_at = if at_day_end || nap_count.zero? || last_wake_time.nil?
                      day_end_today
     else
                      effective_wake + wake_minutes.minutes
