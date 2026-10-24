@@ -12,6 +12,12 @@ class TimerRun < ApplicationRecord
 
   scope :submitted, -> { where(submitted: true) }
   scope :active, -> { where(active: true) }
+  # Runs that share time with [range_start, range_end]. Touching edges and
+  # instant bottle feedings at a boundary don't count.
+  scope :overlapping, lambda { |range_start, range_end|
+    where("start_time < ? AND end_time > ?", range_end, range_start)
+      .or(where("start_time > ? AND start_time < ? AND start_time = end_time", range_start, range_end))
+  }
 
   validates :start_time, presence: true
   validates :end_time, :duration, presence: true, if: :submitted?
@@ -22,6 +28,8 @@ class TimerRun < ApplicationRecord
   # end_time == start_time (duration 0 instant events).
   validate :end_time_must_be_after_start_time, if: -> { start_time.present? && end_time.present? }
   validate :paused_only_when_not_submitted
+  # A baby can only sleep or feed at one time, so finished runs can't overlap.
+  validate :must_not_overlap_other_finished_runs, if: -> { submitted? && start_time.present? && end_time.present? }
   validate :metadata_must_be_hash
 
   before_create :deactivate_previous_active_run, unless: :bottle_submitted_on_create?
@@ -29,6 +37,24 @@ class TimerRun < ApplicationRecord
 
   def bottle_submitted_on_create?
     bottle? && submitted? && !persisted?
+  end
+
+  # Short human description used in overlap errors, in the user's time zone.
+  def overlap_description
+    zone = ActiveSupport::TimeZone[user&.time_zone.presence || "UTC"] || Time.zone
+    local_start = start_time.in_time_zone(zone)
+    local_end = end_time.in_time_zone(zone)
+    start_label = local_start.strftime("%b %-d, %-l:%M %p")
+    end_label = local_end.strftime(local_end.to_date == local_start.to_date ? "%-l:%M %p" : "%b %-d, %-l:%M %p")
+
+    case run_type
+    when "bottle"
+      "a bottle feeding at #{start_label}"
+    when "nursing_left", "nursing_right"
+      "a nursing session from #{start_label} to #{end_label}"
+    else
+      "a sleep from #{start_label} to #{end_label}"
+    end
   end
 
   private
@@ -75,6 +101,18 @@ class TimerRun < ApplicationRecord
     return if end_time > start_time
 
     errors.add(:end_time, "must be after start time")
+  end
+
+  def must_not_overlap_other_finished_runs
+    return unless user
+
+    conflict = user.timer_runs.submitted.where.not(id: id)
+      .overlapping(start_time, end_time)
+      .order(:start_time)
+      .first
+    return unless conflict
+
+    errors.add(:base, "This overlaps #{conflict.overlap_description}. A baby can only sleep or feed at one time.")
   end
 
   def metadata_must_be_hash

@@ -248,6 +248,62 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
     assert_not timer_run.active?
   end
 
+  test "update edits start_time and end_time of a submitted run" do
+    timer_run = @user1.timer_runs.create!(
+      start_time: 3.hours.ago,
+      end_time: 2.hours.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+    start_time = 4.hours.ago.change(usec: 0)
+    end_time = 1.hour.ago.change(usec: 0)
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: {
+            start_time: start_time.iso8601,
+            end_time: end_time.iso8601,
+            duration: 10_800_000,
+            submitted: true
+          },
+          headers: auth_headers(@token1)
+
+    assert_response :success
+    timer_run.reload
+    assert_equal start_time, timer_run.start_time
+    assert_equal end_time, timer_run.end_time
+    assert_equal 10_800_000, timer_run.duration
+    assert timer_run.submitted?
+    assert_not timer_run.active?
+  end
+
+  test "update rejects an edit that overlaps another finished run" do
+    @user1.timer_runs.create!(
+      start_time: 5.hours.ago,
+      end_time: 4.hours.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+    timer_run = @user1.timer_runs.create!(
+      start_time: 3.hours.ago,
+      end_time: 2.hours.ago,
+      duration: 3_600_000,
+      submitted: true
+    )
+
+    patch "/api/v1/timer_runs/#{timer_run.id}",
+          params: {
+            start_time: 270.minutes.ago.iso8601,
+            end_time: 2.hours.ago.iso8601,
+            duration: 9_000_000,
+            submitted: true
+          },
+          headers: auth_headers(@token1)
+
+    assert_response :unprocessable_entity
+    assert_match(/This overlaps a sleep from/, JSON.parse(response.body)["errors"].first)
+    assert_in_delta 3.hours.ago, timer_run.reload.start_time, 5.seconds
+  end
+
   test "update rejects end_time before start_time" do
     start_time = Time.zone.parse("2026-06-01 12:00:00")
     timer_run = @user1.timer_runs.create!(
@@ -533,9 +589,10 @@ class Api::V1::TimerRunsControllerTest < ActionDispatch::IntegrationTest
       submitted: true,
       run_type: :sleeping
     )
+    bottle_time = 90.minutes.ago
     @user1.timer_runs.create!(
-      start_time: 3.hours.ago,
-      end_time: 2.hours.ago,
+      start_time: bottle_time,
+      end_time: bottle_time,
       duration: 0,
       submitted: true,
       run_type: :bottle,
