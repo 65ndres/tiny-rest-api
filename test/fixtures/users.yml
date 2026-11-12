@@ -17,7 +17,7 @@ two:
 support:
   first_name: Support
   last_name: Team
-  email: support.tinyrest.app@gmail.com
+  email: tinyrest.app.support@gmail.com
   username: Support
   encrypted_password: <%= Devise::Encryptor.digest(User, 'password123') %>
   email_verified_at: <%= Time.current %>

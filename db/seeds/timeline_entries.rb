@@ -1,14 +1,16 @@
 # frozen_string_literal: true
 
-# Development-only: fills two weeks of night sleeps, naps, nursing sessions and
-# bottle feedings for an existing account so the timeline has something to
-# show. Safe to re-run; it replaces that account's timer runs.
+# Development-only: fills two weeks (or DAYS days) of night sleeps, naps,
+# nursing sessions and bottle feedings for an existing account so the timeline
+# and reports have something to show. Safe to re-run; it replaces that
+# account's timer runs.
 #
 #   USER_ID=23 bin/rails runner db/seeds/timeline_entries.rb
+#   USER_ID=23 DAYS=90 bin/rails runner db/seeds/timeline_entries.rb
 
 abort "Development only" unless Rails.env.development?
 
-DAYS = 14
+DAYS = Integer(ENV.fetch("DAYS", 14))
 
 user = User.find(ENV.fetch("USER_ID", 23))
 zone = ActiveSupport::TimeZone[user.time_zone.presence || "America/New_York"]
@@ -33,11 +35,12 @@ DAYS.downto(0) do |days_ago|
   night_end = midnight + day_start - rng.rand(30..70).minutes
   night_feed_start = midnight + 2.hours + jitter.call(30)
   night_feed_end = night_feed_start + rng.rand(10..25).minutes
-  runs << [ night_start, night_feed_start ]
-  runs << [ night_feed_end, night_end ]
+  # The baby wakes a little before the feed and settles back a while after.
+  runs << [ night_start, night_feed_start - rng.rand(10..20).minutes ]
+  runs << [ night_feed_end + rng.rand(15..30).minutes, night_end ]
 
-  # Wake-up feed on the other side, shortly after the night ends.
-  wake_feed_start = night_end + rng.rand(5..20).minutes
+  # Wake-up feed on the other side, a while after the night ends.
+  wake_feed_start = night_end + rng.rand(20..40).minutes
   first_side, second_side = days_ago.even? ? %i[nursing_left nursing_right] : %i[nursing_right nursing_left]
   feedings << [ first_side, night_feed_start, night_feed_end, {} ]
   feedings << [ second_side, wake_feed_start, wake_feed_start + rng.rand(10..25).minutes, {} ]

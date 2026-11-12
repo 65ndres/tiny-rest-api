@@ -1,7 +1,7 @@
 class User < ApplicationRecord
   include Devise::JWT::RevocationStrategies::JTIMatcher
 
-  SUPPORT_EMAIL = "support.tinyrest.app@gmail.com"
+  SUPPORT_EMAIL = "tinyrest.app.support@gmail.com"
   SUPPORT_USERNAME = "Support"
   WELCOME_MESSAGE_BODY =
     "Welcome to TinyRest! We're glad you're here. If you have any questions " \
