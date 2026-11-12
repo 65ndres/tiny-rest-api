@@ -41,4 +41,15 @@ class Admin::SessionsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
   end
+
+  test "sign out button logs the support user out" do
+    post admin_login_path, params: { email: @support.email, password: "password123" }
+
+    # button_to sends a POST with a hidden _method=delete field, like a browser does.
+    post admin_logout_path, params: { _method: "delete" }
+
+    assert_redirected_to admin_login_path
+    get admin_root_path
+    assert_redirected_to admin_login_path
+  end
 end

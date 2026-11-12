@@ -34,5 +34,7 @@ module TinyRestApi
     config.middleware.use ActionDispatch::Cookies
     config.middleware.use config.session_store, config.session_options
     config.middleware.use ActionDispatch::Flash
+    # Lets admin forms send DELETE/PATCH via a hidden _method field (e.g. the Sign out button).
+    config.middleware.use Rack::MethodOverride
   end
 end
