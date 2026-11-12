@@ -4,12 +4,18 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>TinyRest Support</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@300;600&display=swap">
     <link rel="stylesheet" href="/admin.css">
   </head>
   <body class="admin">
     <header class="admin-header">
       <div class="admin-header-inner">
-        <a href="<%= admin_root_path %>" class="brand">TinyRest Support</a>
+        <a href="<%= admin_root_path %>" class="brand">
+          <img src="/images/splash-icon.png" alt="Tiny Rest" class="brand-logo">
+          <span class="brand-label">Support</span>
+        </a>
         <% if current_support_user %>
           <nav class="admin-nav">
             <%= link_to 'Create account', new_admin_account_path %>
