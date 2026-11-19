@@ -92,8 +92,10 @@ class SleepPredictionService
     }
   ].freeze
 
-  def initialize(user, submitted_runs: nil, active_run: :not_provided, now: Time.current)
-    @user = user
+  # `baby` may also be a User, in which case its first baby is used.
+  def initialize(baby, submitted_runs: nil, active_run: :not_provided, now: Time.current)
+    @baby = baby.is_a?(User) ? baby.primary_baby : baby
+    @user = @baby.user
     @submitted_runs = submitted_runs
     @active_run_param = active_run
     @time_zone = Time.find_zone(@user.time_zone) || Time.zone
@@ -102,9 +104,9 @@ class SleepPredictionService
   end
 
   def predict(nap_count: nil)
-    resolved_nap_count = normalize_daily_nap_count(nap_count || @user.daily_nap_count)
+    resolved_nap_count = normalize_daily_nap_count(nap_count || @baby.daily_nap_count)
 
-    return needs_birthdate_result(nap_count: resolved_nap_count) unless @user.baby_birthdate.present?
+    return needs_birthdate_result(nap_count: resolved_nap_count) unless @baby.birthdate.present?
 
     schedule = schedule_for_user_day(baby_age_in_months, resolved_nap_count)
 
@@ -213,7 +215,7 @@ class SleepPredictionService
   private
 
   def baby_age_in_months
-    self.class.baby_age_in_months(@user.baby_birthdate, @today)
+    self.class.baby_age_in_months(@baby.birthdate, @today)
   end
 
   def normalize_daily_nap_count(count)
@@ -224,10 +226,10 @@ class SleepPredictionService
   end
 
   def normalized_daily_nap_count_alt
-    alt = @user.daily_nap_count_alt
+    alt = @baby.daily_nap_count_alt
     return nil if alt.nil?
 
-    lower = normalize_daily_nap_count(@user.daily_nap_count)
+    lower = normalize_daily_nap_count(@baby.daily_nap_count)
     upper = alt.to_i
     return upper if User::ALLOWED_NAP_COUNT_RANGES.include?([ lower, upper ])
 
@@ -235,14 +237,14 @@ class SleepPredictionService
   end
 
   def day_start_minutes
-    value = @user.day_start_minutes
+    value = @baby.day_start_minutes
     return DEFAULT_DAY_START_MINUTES if value.nil?
 
     value
   end
 
   def day_end_minutes
-    value = @user.day_end_minutes
+    value = @baby.day_end_minutes
     return DEFAULT_DAY_END_MINUTES if value.nil?
 
     value
@@ -389,7 +391,7 @@ class SleepPredictionService
     @sleeping_runs ||= if @submitted_runs
                          Array(@submitted_runs)
     else
-                         @user.timer_runs
+                         @baby.timer_runs
                            .submitted
                            .where(run_type: TimerRun.run_types[:sleeping])
                            .order(end_time: :desc)
@@ -401,7 +403,7 @@ class SleepPredictionService
     if @active_run_param != :not_provided
       @active_run_param
     else
-      @user.timer_runs.active.where(run_type: TimerRun.run_types[:sleeping]).first
+      @baby.timer_runs.active.where(run_type: TimerRun.run_types[:sleeping]).first
     end
   end
 

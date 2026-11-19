@@ -2,6 +2,7 @@
 
 class TimerRun < ApplicationRecord
   belongs_to :user, optional: true
+  belongs_to :baby, optional: true
 
   enum :run_type, {
     sleeping: "sleeping",
@@ -31,6 +32,9 @@ class TimerRun < ApplicationRecord
   # A baby can only sleep or feed at one time, so finished runs can't overlap.
   validate :must_not_overlap_other_finished_runs, if: -> { submitted? && start_time.present? && end_time.present? }
   validate :metadata_must_be_hash
+  validate :baby_must_belong_to_user
+
+  before_validation :assign_default_baby
 
   before_create :deactivate_previous_active_run, unless: :bottle_submitted_on_create?
   before_save :clear_active_when_completed
@@ -58,6 +62,20 @@ class TimerRun < ApplicationRecord
   end
 
   private
+
+  # Runs created through the user (older callers, seeds, tests) land on the
+  # account's first baby.
+  def assign_default_baby
+    self.user ||= baby&.user
+    self.baby ||= user&.primary_baby if user
+  end
+
+  def baby_must_belong_to_user
+    return unless baby && user
+    return if baby.user_id == user.id
+
+    errors.add(:baby, "must belong to the same account")
+  end
 
   def deactivate_previous_active_run
     return unless user
@@ -103,10 +121,12 @@ class TimerRun < ApplicationRecord
     errors.add(:end_time, "must be after start time")
   end
 
+  # Overlaps are per baby: twins can nap at the same time.
   def must_not_overlap_other_finished_runs
     return unless user
 
-    conflict = user.timer_runs.submitted.where.not(id: id)
+    siblings = baby_id ? TimerRun.where(baby_id: baby_id) : user.timer_runs.where(baby_id: nil)
+    conflict = siblings.submitted.where.not(id: id)
       .overlapping(start_time, end_time)
       .order(:start_time)
       .first

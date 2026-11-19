@@ -7,19 +7,36 @@ class Api::V1::UsersController < ApplicationController
     end
   end
 
+  # Account fields update the user; baby fields (baby_name, baby_birthdate,
+  # nap count, day window) update the selected baby.
   def update
-    if current_user
-      if current_user.update(user_params)
-        render json: user_profile_json(current_user).merge(
-          message: "Profile updated successfully"
-        ), status: :ok
-      else
-        render json: {
-          errors: current_user.errors.full_messages
-        }, status: :unprocessable_entity
-      end
+    unless current_user
+      return render json: { error: "Unauthorized" }, status: :unauthorized
+    end
+
+    attrs = user_params.to_h.symbolize_keys
+    baby_attrs = attrs.extract!(*User::BABY_ATTRIBUTE_MAP.keys)
+      .transform_keys { |key| User::BABY_ATTRIBUTE_MAP.fetch(key) }
+    baby = current_baby
+
+    saved = ActiveRecord::Base.transaction do
+      current_user.assign_attributes(attrs)
+      baby.assign_attributes(baby_attrs)
+      user_valid = current_user.valid?
+      baby_valid = baby.valid?
+      raise ActiveRecord::Rollback unless user_valid && baby_valid
+
+      current_user.save! && baby.save!
+    end
+
+    if saved
+      render json: user_profile_json(current_user).merge(
+        message: "Profile updated successfully"
+      ), status: :ok
     else
-      render json: { error: "Unauthorized" }, status: :unauthorized
+      render json: {
+        errors: (current_user.errors.full_messages + baby_error_messages(baby)).uniq
+      }, status: :unprocessable_entity
     end
   end
 
@@ -105,19 +122,28 @@ class Api::V1::UsersController < ApplicationController
     )
   end
 
+  def baby_error_messages(baby)
+    baby.errors.map do |error|
+      user_attribute = User::BABY_ATTRIBUTE_MAP.key(error.attribute)
+      user_attribute ? User.new.errors.full_message(user_attribute, error.message) : error.full_message
+    end
+  end
+
   def user_profile_json(user)
+    baby = current_baby
     {
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
       username: user.username,
       subscription_type: user.subscription_type_for_payload,
-      baby_name: user.baby_name,
-      baby_birthdate: user.baby_birthdate&.iso8601,
-      daily_nap_count: user.daily_nap_count,
-      daily_nap_count_alt: user.daily_nap_count_alt,
-      day_start_minutes: user.day_start_minutes,
-      day_end_minutes: user.day_end_minutes,
+      baby_id: baby.id,
+      baby_name: baby.name,
+      baby_birthdate: baby.birthdate&.iso8601,
+      daily_nap_count: baby.daily_nap_count,
+      daily_nap_count_alt: baby.daily_nap_count_alt,
+      day_start_minutes: baby.day_start_minutes,
+      day_end_minutes: baby.day_end_minutes,
       time_zone: user.time_zone
     }
   end
