@@ -3,10 +3,14 @@
 class Api::V1::TimerRunsController < ApplicationController
   before_action :set_timer_run, only: [ :update, :destroy ]
 
+  # Listing, the active run and new runs are for the selected baby
+  # (current_baby). Update/destroy look runs up across the account so a run can
+  # still be finished or edited after the app switches babies.
+
   # GET /api/v1/timer_runs
   # Optional query params: from, to (ISO8601 or YYYY-MM-DD), run_type
   def index
-    timer_runs = current_user.timer_runs.submitted
+    timer_runs = current_baby.timer_runs.submitted
     timer_runs = timer_runs.where(run_type: filter_run_type) if filter_run_type
     range = parse_range_params
 
@@ -24,9 +28,10 @@ class Api::V1::TimerRunsController < ApplicationController
   end
 
   # GET /api/v1/timer_runs/active
-  # Optional query param: run_type
+  # Optional query params: run_type; all_babies=true returns the account's
+  # running timer whichever baby it belongs to (only one runs at a time).
   def active
-    timer_runs = current_user.timer_runs.active
+    timer_runs = boolean_param(:all_babies) ? current_user.timer_runs.active : current_baby.timer_runs.active
     timer_runs = timer_runs.where(run_type: filter_run_type) if filter_run_type
     timer_run = timer_runs.first
 
@@ -52,6 +57,7 @@ class Api::V1::TimerRunsController < ApplicationController
     end
 
     timer_run = current_user.timer_runs.build(
+      baby: current_baby,
       start_time: start_time,
       run_type: run_type,
       metadata: metadata_param,
@@ -94,6 +100,7 @@ class Api::V1::TimerRunsController < ApplicationController
 
   def create_bottle_feeding(start_time, run_type)
     timer_run = current_user.timer_runs.build(
+      baby: current_baby,
       start_time: start_time,
       end_time: start_time,
       duration: 0,
@@ -231,6 +238,7 @@ class Api::V1::TimerRunsController < ApplicationController
   def serialize_timer_run(timer_run)
     {
       id: timer_run.id,
+      baby_id: timer_run.baby_id,
       start_time: timer_run.start_time&.iso8601,
       end_time: timer_run.end_time&.iso8601,
       duration: timer_run.duration,

@@ -52,6 +52,8 @@ Rails.application.routes.draw do
       put "onboarding", to: "onboarding#update"
       get "onboarding/completed_onboarding", to: "onboarding#completed_onboarding"
 
+      resources :babies, only: [ :index, :create, :update, :destroy ]
+
       get "sleep_prediction", to: "sleep_predictions#show"
 
       resources :timer_runs, only: [ :index, :create, :update, :destroy ] do

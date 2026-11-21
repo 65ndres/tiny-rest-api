@@ -48,6 +48,19 @@ class ApplicationController < ActionController::API
     end
   end
 
+  BABY_ID_HEADER = "X-Baby-Id"
+
+  # Baby the request is for: the client's selected baby (X-Baby-Id header or
+  # baby_id param), falling back to the account's first baby when it's
+  # missing or no longer exists.
+  def current_baby
+    return nil unless current_user
+
+    @current_baby ||= current_user.find_baby(
+      request.headers[BABY_ID_HEADER].presence || params[:baby_id].presence
+    )
+  end
+
   def sync_user_time_zone!
     user = current_user
     requested_zone = request.headers["X-Time-Zone"].presence

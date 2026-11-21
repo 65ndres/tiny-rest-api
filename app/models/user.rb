@@ -8,6 +8,25 @@ class User < ApplicationRecord
     "or need help with naps, feeding, or your account, reply here anytime — " \
     "we're happy to help."
 
+  # Baby profile columns moved to babies (see CreateBabies). Kept in the table
+  # until a follow-up migration drops them.
+  self.ignored_columns += %w[
+    baby_name baby_birthdate daily_nap_count daily_nap_count_alt
+    day_start_minutes day_end_minutes
+  ]
+
+  # Legacy user-level baby attributes, now read from and written to the
+  # account's first baby. Lets onboarding, admin tools and seeds keep using
+  # `user.baby_birthdate` etc. API requests use the selected baby instead.
+  BABY_ATTRIBUTE_MAP = {
+    baby_name: :name,
+    baby_birthdate: :birthdate,
+    daily_nap_count: :daily_nap_count,
+    daily_nap_count_alt: :daily_nap_count_alt,
+    day_start_minutes: :day_start_minutes,
+    day_end_minutes: :day_end_minutes
+  }.freeze
+
   devise :database_authenticatable, :registerable, :recoverable, :validatable, :jwt_authenticatable, jwt_revocation_strategy: self
 
   # Messaging associations
@@ -34,22 +53,32 @@ class User < ApplicationRecord
   has_one :onboarding, dependent: :destroy
 
   has_many :timer_runs, dependent: :destroy
+  has_many :babies, -> { order(:created_at, :id) },
+           dependent: :destroy, inverse_of: :user, autosave: false, validate: false
+
+  BABY_ATTRIBUTE_MAP.each do |user_attribute, baby_attribute|
+    define_method(user_attribute) { primary_baby.public_send(baby_attribute) }
+    define_method("#{user_attribute}=") { |value| primary_baby.public_send("#{baby_attribute}=", value) }
+  end
+
+  # The account's first baby (the one existing data was migrated into).
+  def primary_baby
+    babies.to_a.first || babies.build
+  end
+
+  # Baby for an API request: the one named by the client, else the first.
+  def find_baby(id)
+    (id.present? && babies.find_by(id: id)) || primary_baby
+  end
 
   DEFAULT_DAY_START_MINUTES = 570  # 9:30 AM
   DEFAULT_DAY_END_MINUTES = 1320   # 10:00 PM
   ALLOWED_NAP_COUNT_RANGES = [ [ 0, 1 ], [ 1, 2 ], [ 2, 3 ], [ 3, 4 ], [ 4, 5 ], [ 5, 6 ] ].freeze
 
   validates :username, presence: true, uniqueness: true, allow_nil: true
-  validates :daily_nap_count, inclusion: { in: 0..6 }
-  validates :daily_nap_count_alt, inclusion: { in: 0..6 }, allow_nil: true
-  validates :day_start_minutes, :day_end_minutes,
-            presence: true,
-            inclusion: { in: 0..1439 }
   validates :time_zone, presence: true
-  validate :baby_birthdate_must_be_valid, if: -> { baby_birthdate.present? }
-  validate :day_window_must_be_ordered
-  validate :daily_nap_count_alt_must_be_allowed_range
   validate :time_zone_must_be_valid
+  validate :primary_baby_must_be_valid
 
   # Search users by username
   scope :search_by_username, ->(query) { where("username ILIKE ?", "%#{query}%") }
@@ -62,6 +91,7 @@ class User < ApplicationRecord
     email == SUPPORT_EMAIL || username == SUPPORT_USERNAME
   end
 
+  after_save :persist_primary_baby
   after_create :generate_username
   after_create :send_welcome_message
   after_create :setup_onboarding
@@ -164,26 +194,24 @@ class User < ApplicationRecord
     subscriptions.active_subscriptions.order(created_at: :desc).first
   end
 
-  def baby_birthdate_must_be_valid
-    if baby_birthdate > Date.current
-      errors.add(:baby_birthdate, "must be in the past")
-    elsif baby_birthdate < 5.years.ago.to_date
-      errors.add(:baby_birthdate, "must be within the last 5 years")
+  def primary_baby_must_be_valid
+    baby = babies.to_a.first
+    return unless baby && (baby.new_record? || baby.changed?)
+    return if baby.valid?
+
+    baby.errors.each do |error|
+      errors.add(BABY_ATTRIBUTE_MAP.key(error.attribute) || :base, error.message)
     end
   end
 
-  def day_window_must_be_ordered
-    return if day_start_minutes.blank? || day_end_minutes.blank?
-    return if day_start_minutes < day_end_minutes
-
-    errors.add(:day_end_minutes, "must be after day start")
-  end
-
-  def daily_nap_count_alt_must_be_allowed_range
-    return if daily_nap_count_alt.nil?
-
-    unless ALLOWED_NAP_COUNT_RANGES.include?([ daily_nap_count, daily_nap_count_alt ])
-      errors.add(:daily_nap_count_alt, "must be an allowed nap range")
+  def persist_primary_baby
+    baby = babies.to_a.first
+    if baby.nil?
+      babies.create!
+    elsif baby.new_record? || baby.changed?
+      # Built before this user had an id; point it at the saved row.
+      baby.user = self
+      baby.save!
     end
   end
 

@@ -10,9 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_10_03_214500) do
+ActiveRecord::Schema[7.2].define(version: 2026_11_18_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "babies", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "name"
+    t.date "birthdate"
+    t.integer "daily_nap_count", default: 3, null: false
+    t.integer "daily_nap_count_alt"
+    t.integer "day_start_minutes", default: 570, null: false
+    t.integer "day_end_minutes", default: 1320, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id"], name: "index_babies_on_user_id"
+  end
 
   create_table "conversations", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -107,6 +120,10 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_03_214500) do
     t.boolean "paused", default: false, null: false
     t.string "run_type", default: "sleeping", null: false
     t.jsonb "metadata", default: {}, null: false
+    t.bigint "baby_id"
+    t.index ["baby_id", "run_type"], name: "index_timer_runs_on_baby_id_and_run_type"
+    t.index ["baby_id", "submitted"], name: "index_timer_runs_on_baby_id_and_submitted"
+    t.index ["baby_id"], name: "index_timer_runs_on_baby_id"
     t.index ["user_id", "run_type"], name: "index_timer_runs_on_user_id_and_run_type"
     t.index ["user_id", "submitted"], name: "index_timer_runs_on_user_id_and_submitted"
     t.index ["user_id"], name: "index_timer_runs_on_user_id"
@@ -155,12 +172,14 @@ ActiveRecord::Schema[7.2].define(version: 2026_10_03_214500) do
     t.index ["username"], name: "index_users_on_username", unique: true
   end
 
+  add_foreign_key "babies", "users"
   add_foreign_key "messages", "conversations"
   add_foreign_key "messages", "users", column: "sender_id"
   add_foreign_key "onboardings", "users"
   add_foreign_key "subscription_events", "subscriptions"
   add_foreign_key "subscription_events", "users"
   add_foreign_key "subscriptions", "users"
+  add_foreign_key "timer_runs", "babies"
   add_foreign_key "timer_runs", "users"
   add_foreign_key "user_conversations", "conversations"
   add_foreign_key "user_conversations", "users"
